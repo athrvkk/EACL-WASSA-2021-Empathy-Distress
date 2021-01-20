@@ -3,7 +3,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 
-df = pd.read_csv (r'dataset\my_data.csv')
+#df = pd.read_csv (r'dataset\LIWC-track-1-essay-empathy-train.csv')
 
 def text_preproc(x):
     x = x.lower()
@@ -32,12 +32,12 @@ def vectorize(clm):
     df1 = pd.DataFrame(denselist, columns=feature_names)
     return df1
 
-def process_text():
-    encode_label()
+def process_text(df):
+    encode_label(df)
     df['essay'] = df.essay.apply(text_preproc)
-    df1 = vectorize(df['essay'])
-    return df1
+    #df1 = vectorize(df['essay'])
+    return df
 
-def encode_label():
+def encode_label(df):
     le = LabelEncoder() 
     df['emotion_label']= le.fit_transform(df['emotion_label']) 
