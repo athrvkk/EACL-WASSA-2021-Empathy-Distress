@@ -78,7 +78,7 @@ class Utils():
         @param text (str): input text to euxpand contractions.
         return text (str): Contraction expanded text.
         """
-        text = list(cont.expand_texts([text], precise=True))[0]
+        text = list(self.cont.expand_texts([text], precise=True))[0]
         return text
     
     
