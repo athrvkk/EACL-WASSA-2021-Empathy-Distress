@@ -41,6 +41,19 @@ class Utils():
 
         else:
             return None
+            
+   
+   
+            
+    # -------------------------------------------- Function read dictionary --------------------------------------------
+    
+    def get_dict(self, path):
+        """ Function to read a file into dictionary.
+        @param path (str): path to file.
+        return dict: created dictionary.
+        """
+        data = pd.read_csv(path)
+        return dict(zip(data.iloc[:,0].tolist(), data.iloc[:,1].tolist())) 
         
         
         
