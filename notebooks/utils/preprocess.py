@@ -8,7 +8,7 @@ import numpy as np
 import re
 import unicodedata
 from pycontractions import Contractions
-from autocorrect import Speller
+
 
 class Preprocess():
     """" Class containing various helper functions """   
@@ -98,18 +98,6 @@ class Preprocess():
         """
         df[column_name] = df[column_name].apply(lambda text: self.normalize_text(text))
         return df
-
-    def autocorrect_spelling(self, essay):
-        """ Function to autocorrect spellings.
-        @params essay (list): list of strings(essays)
-        @return corr_essay (list): list of corrected essays
-        """
-        print("autocorrecting.....")
-        for i in range(0, len(essay)):
-            spell = Speller(lang='en')
-            essay[i] = (spell(essay[i])) 
-        return essay
-           
         
         
         
