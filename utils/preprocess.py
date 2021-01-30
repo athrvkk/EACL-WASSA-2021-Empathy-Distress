@@ -16,6 +16,10 @@ from pycontractions import Contractions
 from autocorrect import Speller
 from utils import Utils
 
+nltk.download('stopwords')
+nltk.download('punkt')
+nltk.download('wordnet')
+
 
 
 

@@ -94,7 +94,7 @@ class Utils():
 
     # -------------------------------------------- Function to read embeddings -------------------------------------------- 
     
-    def get_embedding_matrix(path, vocab, top=50000):
+    def get_embedding_matrix(self, path, vocab, top=50000):
         """ Function to get the word embedding matrix.
         @param path (str): path to the word embeddings file.
         @param vocab (list): list of corpus vocab.

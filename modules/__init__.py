@@ -6,3 +6,5 @@
 
 """ The package of utilities """
 
+from .cnn import CNN
+from .mtlm import MTLM
