@@ -38,7 +38,7 @@ class Preprocess():
             self.cont.load_models()
             self.speller = Speller(lang='en')
             self.wordlist = set(words.words()).union(set(wordnet.words()), set(brown.words()))
-            self.nouns = ['NN', 'NNS', 'NNP', 'NNPS']
+            self.nouns = ['NNP', 'NNPS']
         
         
        
@@ -141,6 +141,11 @@ class Preprocess():
         """
         df[column_name] = df[column_name].apply(lambda text: self.normalize_text(text))
         return df
+    
+    
+    
+    
+    # -------------------------------------------- Function to clean text --------------------------------------------
         
     def clean_text(self, text, remove_stopwords=True, lemmatize=True):
         """ Function to clean text
