@@ -19,6 +19,9 @@ from utils import Utils
 nltk.download('stopwords')
 nltk.download('punkt')
 nltk.download('wordnet')
+nltk.download('words')
+nltk.download('brown')
+
 
 
 
@@ -37,12 +40,13 @@ class Preprocess():
         self.utils = Utils()
         self.stop_words = stopwords.words('english')
         self.wordnet_lemmatizer = WordNetLemmatizer()
+        self.speller = Speller(lang='en')
+        self.wordlist = set(words.words()).union(set(wordnet.words()), set(brown.words()))
+        self.nouns = ['NNP', 'NNPS']
         if mode == "normalize":
             self.cont = Contractions(contractions_model_path)
             self.cont.load_models()
-            self.speller = Speller(lang='en')
-            self.wordlist = set(words.words()).union(set(wordnet.words()), set(brown.words()))
-            self.nouns = ['NNP', 'NNPS']
+            
         
         
        
@@ -62,17 +66,17 @@ class Preprocess():
     
     # -------------------------------------------- Function to Correct Spellings --------------------------------------------
        
-    def correct_spelling(self, word, proper_noun):
+    def correct_spelling(self, word, pos):
         """ Function to autocorrect words
         @param word (str): misspelled words
         @param proper_noun (list): list of proper nouns to ignore
         return corrected word
 
         """
-        if word in proper_noun :
+        if word.lower() in self.wordlist or pos in self.nouns:
             return word
         else:
-            return self.speller(word)
+            return self.speller(word.lower())
         
         
         
@@ -111,6 +115,7 @@ class Preprocess():
         text = re.sub(r'^\s*|\s\s*', ' ', text).strip()
 
         tokenized_text = text.split()
+        
         abbr_dict = self.utils.get_dict("/home/eastwind/PycharmProjects/WASSA-2021-Shared-Task/resources/social-media-abbreviations.csv")
         for i in range(len(tokenized_text)):
             x = re.sub(r'[^\w\s]', '', tokenized_text[i]).lower()
@@ -128,15 +133,12 @@ class Preprocess():
         # Remove wordplay
         tokenized_text = [self.remove_wordplay(word, pos) for word, pos in tokens_pos]
         
-        # Spelling correction
-        tokenized_text = [self.correct_spelling(word, pos) for word, pos in tokens_pos]
-        
         # Combine words into sentence.    
         text = ""
         for word in tokenized_text:
             text = text + " " + word
         
-
+        text = self.speller(text)
         return text
         
 
