@@ -6,9 +6,23 @@
 import pandas as pd
 import numpy as np
 import re
+import nltk
+from nltk.corpus import stopwords
+from nltk.corpus import words, wordnet, brown
+from nltk.tokenize import word_tokenize
+from nltk.stem import WordNetLemmatizer
 import unicodedata
 from pycontractions import Contractions
 from autocorrect import Speller
+from utils import Utils
+
+nltk.download('stopwords')
+nltk.download('punkt')
+nltk.download('wordnet')
+
+
+
+
 
 class Preprocess():
     """" Class containing various helper functions """   
@@ -16,29 +30,23 @@ class Preprocess():
     
     # -------------------------------------------- Class Constructor --------------------------------------------
     
-    def __init__(self, contractions_model_path="/home/eastwind/word-embeddings/word2vec/GoogleNews-vectors-negative300.bin"):
+    def __init__(self, mode="normalize", contractions_model_path="/home/eastwind/word-embeddings/word2vec/GoogleNews-vectors-negative300.bin"):
         """ Class Constructor
         @param contractions_model_path (str): model to be loaded for contractions expansion.
         """
-        self.cont = Contractions(contractions_model_path)
-        self.cont.load_models()
+        self.utils = Utils()
+        self.stop_words = stopwords.words('english')
+        self.wordnet_lemmatizer = WordNetLemmatizer()
+        if mode == "normalize":
+            self.cont = Contractions(contractions_model_path)
+            self.cont.load_models()
+            self.speller = Speller(lang='en')
+            self.wordlist = set(words.words()).union(set(wordnet.words()), set(brown.words()))
+            self.nouns = ['NNP', 'NNPS']
         
         
-    
-    
-    # -------------------------------------------- Function read dictionary --------------------------------------------
-    
-    def get_dict(self, path):
-        """ Function to read a file into dictionary.
-        @param path (str): path to file.
-        return dict: created dictionary.
-        """
-        data = pd.read_csv(path)
-        return dict(zip(data.iloc[:,0].tolist(), data.iloc[:,1].tolist())) 
-    
-    
-    
-    
+       
+     
     # -------------------------------------------- Function to expand contractions --------------------------------------------
     
     def expand_contractions(self, text):
@@ -49,9 +57,38 @@ class Preprocess():
         text = list(self.cont.expand_texts([text], precise=True))[0]
         return text
     
+      
     
     
+    # -------------------------------------------- Function to Correct Spellings --------------------------------------------
+       
+    def correct_spelling(self, word, pos):
+        if word.lower() in self.wordlist or pos in self.nouns:
+            return word
+        else:
+            return self.speller(word)
+        
+        
+        
     
+    # --------------------------------------- Remove Wordplay ---------------------------------------
+    
+    def remove_wordplay(self, word, pos):
+        pattern = re.compile(r"(\w*)(\w)\2(\w*)")
+        substitution_pattern = r"\1\2\3"
+        while True:
+            if word.lower() in self.wordlist or pos in self.nouns:
+                return word
+            new_word = pattern.sub(substitution_pattern, word)
+            if new_word != word:
+                word = new_word
+                continue
+            else:
+                return new_word
+                
+                
+                
+                    
     # -------------------------------------------- Function to normalize input text --------------------------------------------
     
     def normalize_text(self, text):
@@ -68,7 +105,7 @@ class Preprocess():
         text = re.sub(r'^\s*|\s\s*', ' ', text).strip()
 
         tokenized_text = text.split()
-        abbr_dict = self.get_dict("../text-normalization-dictionaries/social-media-abbreviations.csv")
+        abbr_dict = self.utils.get_dict("/home/eastwind/PycharmProjects/WASSA-2021-Shared-Task/resources/social-media-abbreviations.csv")
         for i in range(len(tokenized_text)):
             x = re.sub(r'[^\w\s]', '', tokenized_text[i]).lower()
             
@@ -78,12 +115,22 @@ class Preprocess():
 
             # Expand contracitons
             tokenized_text[i] = self.expand_contractions(tokenized_text[i])    
+        
+        # Get Part of speech for each word
+        tokens_pos = nltk.pos_tag(tokenized_text)
 
+        # Remove wordplay
+        tokenized_text = [self.remove_wordplay(word, pos) for word, pos in tokens_pos]
+        
+        # Spelling correction
+        tokenized_text = [self.correct_spelling(word, pos) for word, pos in tokens_pos]
+        
         # Combine words into sentence.    
         text = ""
         for word in tokenized_text:
             text = text + " " + word
         
+
         return text
         
 
@@ -98,18 +145,56 @@ class Preprocess():
         """
         df[column_name] = df[column_name].apply(lambda text: self.normalize_text(text))
         return df
-
-    def autocorrect_spelling(self, essay):
-        """ Function to autocorrect spellings.
-        @params essay (list): list of strings(essays)
-        @return corr_essay (list): list of corrected essays
+    
+    
+    
+    
+    # -------------------------------------------- Function to clean text --------------------------------------------
+        
+    def clean_text(self, text, remove_stopwords=True, lemmatize=True):
+        """ Function to clean text
+        @param text (str): text to be cleaned
+        @param remove_stopwords (bool): To remove stopwords or not.
+        @param lemmatize (bool): to lemmatize or not.
         """
-        print("autocorrecting.....")
-        for i in range(0, len(essay)):
-            spell = Speller(lang='en')
-            essay[i] = (spell(essay[i])) 
-        return essay
-           
-        
-        
-        
+        # Remove puntuations and numbers
+        text = re.sub('[^a-zA-Z]', ' ', text)
+
+        # Remove single characters
+        text = re.sub(r"\s+[a-zA-Z]\s+", ' ', text)
+
+        # remove multiple spaces
+        text = re.sub(r'\s+', ' ', text)
+        text = text.lower()
+
+        if not remove_stopwords and not lemmatize:
+            return text
+
+        # Remove unncecessay stopwords
+        if remove_stopwords:
+            text = word_tokenize(text)
+            cleaned_text = []
+            for t in text:
+                if t not in self.stop_words:
+                    cleaned_text.append(t)
+
+        # Word lemmatization
+        if lemmatize:
+            if not remove_stopwords:
+                cleaned_text = word_tokenize(text)
+            processed_text = []
+            for t in cleaned_text:
+                word1 = self.wordnet_lemmatizer.lemmatize(t, pos="n")
+                word2 = self.wordnet_lemmatizer.lemmatize(word1, pos="v")
+                word3 = self.wordnet_lemmatizer.lemmatize(word2, pos=("a"))
+                processed_text.append(word3)
+
+        result = ""
+        if not lemmatize:
+            processed_text = cleaned_text
+        for word in processed_text:
+            result = result + word + " "
+        result = result.rstrip()
+
+        return result
+
