@@ -62,8 +62,14 @@ class Preprocess():
     
     # -------------------------------------------- Function to Correct Spellings --------------------------------------------
        
-    def correct_spelling(self, word, pos):
-        if word.lower() in self.wordlist or pos in self.nouns:
+    def correct_spelling(self, word, proper_noun):
+        """ Function to autocorrect words
+        @param word (str): misspelled words
+        @param proper_noun (list): list of proper nouns to ignore
+        return corrected word
+
+        """
+        if word in proper_noun :
             return word
         else:
             return self.speller(word)
