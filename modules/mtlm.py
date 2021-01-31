@@ -1,17 +1,25 @@
-# file contatins Class for Mutli-task learning model 
+# File contatins Class for Mutli-task learning model 
 # File: mtlm.py
 # Author: Atharva Kulkarni
 
+import sys
+sys.path.append('../')
 
-from tensorflow.keras.layers import Input, Embedding, Dense, Flatten, Conv1D, LSTM, Bidirectional, Dropout, BatchNormalization, Concatenate
-from tensorflow.keras.layers import AveragePooling1D, MaxPooling1D, GlobalMaxPool1D, GlobalAveragePooling1D
+from utils.utils import Utils
+import time
+import numpy as np
+from scipy.stats import pearsonr
+from sklearn.model_selection import train_test_split
+from sklearn.utils import class_weight
+import tensorflow as tf
+from tensorflow.keras.layers import Input, Dense, LeakyReLU, PReLU, Activation
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.callbacks import ModelCheckpoint, ReduceLROnPlateau, EarlyStopping
 from tensorflow.keras.utils import plot_model
 from tensorflow.keras.models import load_model
 from tensorflow.keras import Model
-from cnn import CNN
+
 
 
 
@@ -20,10 +28,22 @@ from cnn import CNN
 class MTLM():
 
 
-    def __init__(self, base_model_type="CNN", cpkt="trial"):
+    def __init__(self, base_model_type="CNN", activation="relu", cpkt="trial"):
+        if activation == "leaky_relu":
+            self.activation = LeakyReLU()
+        elif activation == "paramaterized_leaky_relu":
+            self.activation = PReLU()           
+        elif activation == "relu":
+            self.activation = "relu"
+        else:
+            self.activation = activation
+
         self.base_model_type = base_model_type
         if self.base_model_type == "CNN":
-            self.base_model  =CNN()
+            self.base_model = CNN(self.activation)
+        elif self.base_model_type == "LSTM":
+            self.base_model = LSTM(self.activation)
+
         # ModelCheckPoint Callback:
         checkpoint_filepath = "/content/gdrive/My Drive/WASSA-2021-Shared-Task/model-weights/"+ cpkt + "-epoch-{epoch:02d}-val-loss-{val_loss:02f}.h5"
         self.model_checkpoint_callback = ModelCheckpoint(filepath=checkpoint_filepath,
@@ -47,18 +67,23 @@ class MTLM():
 
 
 
-    def build(self, embedding_matrix, input_length=100):
+    def build(self, embedding_matrix, input_length=100, labels=1):
         input = Input(shape=(input_length,))
-        x = self.base_model.build(input_length, embedding_matrix)(input)
+        base_output = self.base_model.build(input_length, embedding_matrix)(input)
 
-        x = Dense(32, activation="relu")(x)
-        bin = Dense(1, activation='sigmoid', name='bin_output')(x)
+        x = Dense(32, self.activation, kernel_regularizer=l2(0.001))(base_output)
+        empathy_bin = Dense(1, activation='sigmoid', name='empathy_bin_output')(x)
 
-        x = Dense(8, activation="relu")(x)
-        score = Dense(1, name='score_output')(x)
+        x = Dense(32, self.activation, kernel_regularizer=l2(0.001))(base_output)
+        distress_bin = Dense(1, activation='sigmoid', name='distress_bin_output')(x)
+
+        x = Dense(8, self.activation, kernel_regularizer=l2(0.001))(x)
+        empathy_score = Dense(1, name='empathy_score_output')(x)
         
-        self.model = Model(inputs=input, outputs=[score, bin])
-        self.model.compile(optimizer=Adam(lr=0.001), loss={"score_output":"mse", "bin_output":"binary_crossentropy"})
+        self.model = Model(inputs=input, outputs=[empathy_bin, distress_bin, empathy_score])
+        self.model.compile(optimizer=Adam(lr=0.001), loss={"empathy_bin_output":"binary_crossentropy",                                                           
+                                                           "distress_bin_output":"binary_crossentropy",
+                                                           "empathy_score_output":"mse"})
         self.model.summary()
 
 
@@ -70,13 +95,13 @@ class MTLM():
 
 
 
-    def train(self, x_train, score_train, bin_train, x_val, score_val, bin_val, epochs=200, batch_size=32):
+    def train(self, x_train, y_train, x_val, y_val, epochs=200, batch_size=32):
         history = self.model.fit(x_train,
-                                 [score_train, bin_train], 
+                                 y_train, 
                                  epochs=epochs, 
                                  batch_size=batch_size, 
                                  verbose=1, 
-                                 validation_data = (x_val, [score_val, bin_val]),
+                                 validation_data = (x_val, y_val),
                                  callbacks=[self.model_checkpoint_callback, self.reduce_lr_callback, self.early_stopping])
         return history
 
@@ -98,7 +123,7 @@ class MTLM():
     def prediction(self, val_essay, model_path=""):
         model_path = "/content/gdrive/My Drive/WASSA-2021-Shared-Task/model-weights/"+model_path
         self.model.load_weights(model_path)
-        pred_score, pred_bin = self.model.predict(val_essay)
+        _,  _, pred_score = self.model.predict(val_essay)
         return pred_score
 
 
@@ -108,6 +133,7 @@ class MTLM():
         y_pred = y_pred.flatten()
         y_true = y_true.flatten()
         return pearsonr(y_true, y_pred)[0]
+        
         
         
         
