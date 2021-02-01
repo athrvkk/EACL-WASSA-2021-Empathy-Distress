@@ -71,7 +71,7 @@ class Utils():
        
     # -------------------------------------------- Function to tokenize and pad input text --------------------------------------------    
 
-    def prepare_input(self, corpus, maxlen=100, padding_type='post', truncating_type='post', mode="train"):
+    def tokenize_and_pad(self, corpus, maxlen=100, padding_type='post', truncating_type='post', mode="train"):
         """ Function to prepare text for model input (tokenize and pad).
         @param corpus (list): the corpus to prepare.
         @param maxlen (int): max allowed length of input texts.
