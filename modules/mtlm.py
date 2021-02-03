@@ -30,7 +30,7 @@ class MTLM():
 
     # ------------------------------------------------------------ Constructor ------------------------------------------------------------
     
-    def __init__(self, base_model_type="CNN", activation="relu", cpkt="trial"):
+    def __init__(self, base_model_type="CNN", activation="tanh", cpkt="trial"):
         if activation == "leaky_relu":
             self.activation = LeakyReLU()
         elif activation == "paramaterized_leaky_relu":
@@ -41,7 +41,8 @@ class MTLM():
             self.activation = activation
 
         self.base_model_type = base_model_type
-        if self.base_model_type == "BERT" or "DistilBERT" or "RoBERTa": 
+        self.bert_models = ["BERT", "DistilBERT", "RoBERTa"]
+        if self.base_model_type in self.bert_models:
             self.base_model = BertModel(self.base_model_type, self.activation, output_hidden_states=False)
         elif self.base_model_type == "CNN":
             self.base_model = CNN(self.activation)
@@ -81,7 +82,7 @@ class MTLM():
     # ------------------------------------------------------------ Function to prepare input for respective models ------------------------------------------------------------
     
     def prepare_input(self, utils_obj, corpus, maxlen=200, padding_type='post', truncating_type='post', mode="train"):
-        if self.base_model_type == "BERT" or "DistilBERT" or "RoBERTa":
+        if self.base_model_type in self.bert_models:
             return self.base_model.prepare_input(corpus, maxlen)
         else:
             return self.base_model.prepare_input(utils_obj, corpus, maxlen, padding_type, truncating_type, mode)
@@ -125,7 +126,7 @@ class MTLM():
     # ------------------------------------------------------------ Function to build the model ------------------------------------------------------------
     
     def build(self, embedding_matrix, input_length=100):
-        if self.base_model_type == "BERT" or "DistilBERT" or "RoBERTa":
+        if self.base_model_type in self.bert_models:
             input_ids = Input(shape=(input_length,))
             attention_mask = Input(shape=(input_length,))
             base_output = self.base_model.build(input_length)([input_ids, attention_mask])
@@ -134,7 +135,7 @@ class MTLM():
             base_output = self.base_model.build(input_length, embedding_matrix)(input)
 
         x1 = Dense(32, self.activation, kernel_regularizer=l2(0.001))(base_output)
-        bin = Dense(3, activation='softmax', name='bin_output')(x1)
+        bin = Dense(1, activation='sigmoid', name='bin_output')(x1)
         emotion_label = Dense(7, activation='softmax', name='emotion_label_output')(x1)
 
         x2 = Dense(32, self.activation, kernel_regularizer=l2(0.001))(base_output)
@@ -143,16 +144,16 @@ class MTLM():
         race = Dense(6, activation='softmax', name='race_output')(x2)
         
         x = Concatenate(axis=1)([x1, x2])
-        x = Dense(8, self.activation, kernel_regularizer=l2(0.001))(x)
+        x = Dense(16, self.activation, kernel_regularizer=l2(0.001))(x)
         score = Dense(1, name='score_output')(x)
         
-        if self.base_model_type == "BERT" or "DistilBERT" or "RoBERTa":
+        if self.base_model_type in self.bert_models:
             self.model = Model(inputs=[input_ids, attention_mask], 
                                outputs=[bin, emotion_label, gender, education, race, score])
         else:
             self.model = Model(inputs=input, 
                                outputs=[bin, emotion_label, gender, education, race, score])
-        self.model.compile(optimizer=Adam(lr=0.001), loss={"bin_output":"sparse_categorical_crossentropy",                                                           
+        self.model.compile(optimizer=Adam(lr=0.001), loss={"bin_output":"binary_crossentropy",                                                           
                                                            "emotion_label_output":"sparse_categorical_crossentropy",
                                                            "gender_output":"sparse_categorical_crossentropy",
                                                            "education_output":"sparse_categorical_crossentropy",
@@ -224,13 +225,6 @@ class MTLM():
         plt.show() 
 
 
-
-
-
-    
-        
-        
-        
         
         
         
