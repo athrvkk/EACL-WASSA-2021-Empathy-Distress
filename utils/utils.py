@@ -8,7 +8,9 @@ import numpy as np
 from gensim.models import KeyedVectors
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
-
+import nltk
+nltk.download('vader_lexicon')
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
 
 
@@ -120,3 +122,18 @@ class Utils():
                 continue       
         print("zero embeddings: ", cnt)
         return embedding_matrix
+        
+        
+        
+        
+        
+    # -------------------------------------------- Function to generate new features --------------------------------------------
+            
+    def generate_features(df):
+        sentiment_analyzer = SentimentIntensityAnalyzer()
+        df.gender =  df.gender.apply(lambda x: 2 if x==5 else x)
+        df["vader_scores"] = df.essay.apply(lambda x: [value for value in sentiment_analyzer.polarity_scores(x).values()])
+        return df
+        
+        
+        
