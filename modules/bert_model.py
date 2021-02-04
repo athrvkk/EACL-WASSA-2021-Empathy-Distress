@@ -40,6 +40,11 @@ class BertModel():
             config = RobertaConfig.from_pretrained("roberta-base", output_hidden_states=output_hidden_states)
             self.tokenizer = RobertaTokenizer.from_pretrained("roberta-base", do_lower_case=True)
             self.bert = TFRobertaModel.from_pretrained("roberta-base", config=config)
+        elif bert_model == "custom":
+            model_name = "nateraw/bert-base-uncased-emotion"
+            #config = AutoConfig.from_pretrained(model_name, output_hidden_states=output_hidden_states)
+            self.tokenizer = AutoTokenizer.from_pretrained(model_name, do_lower_case=True)
+            self.bert = AutoModel.from_pretrained(model_name)
 
 
 
@@ -77,14 +82,14 @@ class BertModel():
         attention_mask = Input(shape=(input_length,), name='attention_mask', dtype="int32")
         x = self.bert(input_ids, attention_mask=attention_mask)[0]
         x = GlobalAveragePooling1D()(x)
-        x = Dense(512, activation=self.activation, kernel_regularizer=l2(0.001))(x)
-        out = Dropout(0.2)(x)
         x = Dense(128, activation=self.activation, kernel_regularizer=l2(0.001))(x)
         out = Dropout(0.2)(x)
 
         model = Model(inputs=[input_ids, attention_mask], outputs=out)
         model.layers[2].trainable = False
         return model
+        
+        
         
         
         

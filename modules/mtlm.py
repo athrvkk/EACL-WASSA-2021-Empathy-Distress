@@ -30,7 +30,9 @@ class MTLM():
 
     # ------------------------------------------------------------ Constructor ------------------------------------------------------------
     
-    def __init__(self, base_model_type="CNN", activation="tanh", cpkt="trial"):
+    def __init__(self, base_model_type="CNN", activation="relu", score_loss="mse", binary_loss="binary_crossentropy", multiclass_loss="sparse_categorical_crossentropy", cpkt="trial"):
+
+        # Set the model activation:
         if activation == "leaky_relu":
             self.activation = LeakyReLU()
         elif activation == "paramaterized_leaky_relu":
@@ -40,8 +42,36 @@ class MTLM():
         else:
             self.activation = activation
 
+        # Set the regression loss:
+        self.score_metric = "mean_squared_error"
+        if score_loss == "huber":
+            self.score_loss = "huber_loss"
+        elif score_loss == "log_cosh":
+            self.score_loss = "log_cosh"
+        elif score_loss == "mean_squared_logarithmic_error":
+            self.score_loss = "mean_squared_logarithmic_error"
+        else:
+            self.score_loss = "mse"
+
+        # Set the binary classification loss:
+        if binary_loss == "hinge":
+            self.binary_loss = "hinge"
+            self.binary_activation = "tanh"
+        elif binary_loss == "squared_hinge":
+            self.binary_loss = "squared_hinge"
+            self.binary_activation = "tanh"
+        else:
+            self.binary_loss = "binary_crossentropy"
+            self.binary_activation = "sigmoid"
+
+        # Set the multi-class calssification loss:
+        if multiclass_loss == "kld":
+            self.multiclass_loss = "kl_divergence"
+        else:
+            self.multiclass_loss = "sparse_categorical_crossentropy"
+
         self.base_model_type = base_model_type
-        self.bert_models = ["BERT", "DistilBERT", "RoBERTa"]
+        self.bert_models = ["BERT", "DistilBERT", "RoBERTa", "custom"]
         if self.base_model_type in self.bert_models:
             self.base_model = BertModel(self.base_model_type, self.activation, output_hidden_states=False)
         elif self.base_model_type == "CNN":
@@ -52,10 +82,12 @@ class MTLM():
         self.gender_encoder = LabelEncoder()
         self.education_encoder = LabelEncoder()
         self.race_encoder = LabelEncoder()
-        self.emotion_label_encoder = LabelEncoder()
+        self.emotion_encoder = LabelEncoder()
         
         # ModelCheckPoint Callback:
-        checkpoint_filepath = "/content/gdrive/My Drive/WASSA-2021-Shared-Task/model-weights/"+ cpkt + "-epoch-{epoch:02d}-val-loss-{val_score_output_loss:02f}.h5"
+        cpkt = cpkt + "-{}-{}-{}".format(self.binary_loss, self.multiclass_loss, self.score_loss)
+        cpkt = cpkt + "-epoch-{epoch:02d}-val-{}-loss-{val_score_output_loss:02f}.h5"
+        checkpoint_filepath = "/content/gdrive/My Drive/WASSA-2021-Shared-Task/model-weights/"+ cpkt
         self.model_checkpoint_callback = ModelCheckpoint(filepath=checkpoint_filepath,
                                                     save_weights_only=True,
                                                     monitor='val_score_output_loss',
@@ -94,30 +126,30 @@ class MTLM():
     # ------------------------------------------------------------ Funciton to prepare model outputs ------------------------------------------------------------
     
     def prepare_output(self, df, task="empathy", mode="train"):
-        emotion_label = np.reshape(df.emotion_label.values.tolist(), (len(df), 1))
+        emotion = np.reshape(df.gold_emotion.values.tolist(), (len(df), 1))
         gender = np.reshape(df.gender.values.tolist(), (len(df), 1))
         education = np.reshape(df.education.values.tolist(), (len(df), 1))
         race = np.reshape(df.race.values.tolist(), (len(df), 1))
         
         if mode == "train":
-            emotion_label = self.emotion_label_encoder.fit_transform(emotion_label)
+            emotion = self.emotion_encoder.fit_transform(emotion)
             gender = self.gender_encoder.fit_transform(gender)
             education = self.education_encoder.fit_transform(education)
             race = self.race_encoder.fit_transform(race)
-        else:
-            emotion_label = self.emotion_label_encoder.transform(emotion_label)
+        elif mode == "dev" or "test":
+            emotion = self.emotion_encoder.transform(emotion)
             gender = self.gender_encoder.transform(gender)
             education = self.education_encoder.transform(education)
             race = self.race_encoder.transform(race)
 
         if task == "empathy":
-            score = np.reshape(df.empathy.values.tolist(), (len(df), 1))
-            bin = np.reshape(df.empathy_bin.values.tolist(), (len(df), 1))
-            return [bin, emotion_label, gender, education, race, score]
+            score = np.reshape(df.gold_empathy.values.tolist(), (len(df), 1))
+            bin = np.reshape(df.gold_empathy_bin.values.tolist(), (len(df), 1))
+            return [bin, emotion, gender, education, race, score]
         if task == "distress":
-            score = np.reshape(df.distress.values.tolist(), (len(df), 1))
-            bin = np.reshape(df.distress_bin.values.tolist(), (len(df), 1))
-            return [bin, emotion_label, gender, education, race, score]
+            score = np.reshape(df.gold_distress.values.tolist(), (len(df), 1))
+            bin = np.reshape(df.gold_distress_bin.values.tolist(), (len(df), 1))
+            return [bin, emotion, gender, education, race, score]
 
 
 
@@ -135,30 +167,34 @@ class MTLM():
             base_output = self.base_model.build(input_length, embedding_matrix)(input)
 
         x1 = Dense(32, self.activation, kernel_regularizer=l2(0.001))(base_output)
-        bin = Dense(1, activation='sigmoid', name='bin_output')(x1)
-        emotion_label = Dense(7, activation='softmax', name='emotion_label_output')(x1)
+        bin = Dense(1, activation=self.binary_activation, name='bin_output')(x1)
 
         x2 = Dense(32, self.activation, kernel_regularizer=l2(0.001))(base_output)
-        gender = Dense(3, activation='softmax', name='gender_output')(x2)
-        education = Dense(6, activation='softmax', name='education_output')(x2)
-        race = Dense(6, activation='softmax', name='race_output')(x2)
+        emotion = Dense(7, activation='softmax', name='emotion_output')(x2)
+
+        x3 = Dense(32, self.activation, kernel_regularizer=l2(0.001))(base_output)
+        gender = Dense(3, activation='softmax', name='gender_output')(x3)
+        education = Dense(6, activation='softmax', name='education_output')(x3)
+        race = Dense(6, activation='softmax', name='race_output')(x3)
         
-        x = Concatenate(axis=1)([x1, x2])
-        x = Dense(16, self.activation, kernel_regularizer=l2(0.001))(x)
+        x = Concatenate(axis=1)([x1, x2, x3])
+        x = Dense(16, self.activation)(x)
         score = Dense(1, name='score_output')(x)
         
         if self.base_model_type in self.bert_models:
             self.model = Model(inputs=[input_ids, attention_mask], 
-                               outputs=[bin, emotion_label, gender, education, race, score])
+                               outputs=[bin, emotion, gender, education, race, score])
         else:
             self.model = Model(inputs=input, 
-                               outputs=[bin, emotion_label, gender, education, race, score])
-        self.model.compile(optimizer=Adam(lr=0.001), loss={"bin_output":"binary_crossentropy",                                                           
-                                                           "emotion_label_output":"sparse_categorical_crossentropy",
-                                                           "gender_output":"sparse_categorical_crossentropy",
-                                                           "education_output":"sparse_categorical_crossentropy",
-                                                           "race_output":"sparse_categorical_crossentropy",
-                                                           "score_output":"mse"})
+                               outputs=[bin, emotion, gender, education, race, score])
+        self.model.compile(optimizer=Adam(lr=0.001), 
+                           loss={"bin_output":self.binary_loss,                                                           
+                                 "emotion_output":self.multiclass_loss,
+                                 "gender_output":self.multiclass_loss,
+                                 "education_output":self.multiclass_loss,
+                                 "race_output":self.multiclass_loss,
+                                 "score_output":self.score_loss},
+                           metrics={"score_output":self.score_metric})
         self.model.summary()
 
 
@@ -223,6 +259,7 @@ class MTLM():
         plt.xlabel('epoch')
         plt.legend(['train','validation'], loc='upper left')
         plt.show() 
+
 
 
         
