@@ -13,7 +13,7 @@ from tensorflow.keras import Model
 
 class BiLSTM():
 
-    def __init__(self, activation="relu"):
+    def __init__(self, activation, kr_initializer, kr_rate):
         self.activation = activation
 
     def build(self, input_length, embedding_matrix):
@@ -25,7 +25,7 @@ class BiLSTM():
                               weights=[embedding_matrix], trainable=False)(input)
         lstm = Bidirectional(LSTM(128, dropout=0.3, return_sequences=True))(embedding)
         lstm_pool = GlobalMaxPool1D()(lstm)
-        dense = Dense(128,  activation=self.activation, kernel_regularizer=l2(0.001))(lstm_pool)
+        dense = Dense(128,  activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(lstm_pool)
         out = Dropout(0.2)(dense)
 
         return Model(inputs=input, outputs=out)
@@ -46,6 +46,7 @@ class BiLSTM():
                                                              truncating_type=truncating_type, 
                                                              mode="test")
             return preprared_corpus
+
 
 
 
