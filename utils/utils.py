@@ -135,5 +135,19 @@ class Utils():
         df["vader_scores"] = df.essay.apply(lambda x: [value for value in sentiment_analyzer.polarity_scores(x).values()])
         return df
         
-        
+    
+    
+    
+    # -------------------------------------------- Function to create age bins --------------------------------------------
+    
+    def categorize_age(self, age):
+        if age >0 and age <=25:
+            return 0
+        elif age >25 and age <=40:
+            return 1
+        elif age >40 and age <=60:
+            return 2
+        elif age >60:
+            return 3
+                
         
