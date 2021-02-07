@@ -6,7 +6,7 @@ import sys
 sys.path.append('../')
 
 from utils.utils import Utils
-from tensorflow.keras.layers import Input, Embedding, Dense, Bidirectional, LSTM, GlobalMaxPool1D, GlobalAveragePooling1, Dropout
+from tensorflow.keras.layers import Input, Embedding, Dense, Bidirectional, LSTM, GlobalMaxPool1D, GlobalAveragePooling1D, Dropout
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras import Model
 
