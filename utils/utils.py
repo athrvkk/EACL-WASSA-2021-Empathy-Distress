@@ -134,28 +134,56 @@ class Utils():
         @param feature (pd.Series) The target variable (gold_empthy_bin or gold_distres_bin).
         @return weight (dict) The dictionary contribution of each word to the feature passed.
         '''
+        # dictionary1 = {}   #to count the number of times a word contributes to feature=1
+        # dictionary0 = {}   #to count the number of times a word contributes to feature=0
+        # words=[] 
+        # for i in range(0, len(essay)):   #loop to find both counts(feature=1, feature=0) for each word
+        #     for word in essay[i].split():
+        #         if word.isalpha():
+        #             if word in dictionary1.keys():
+        #                 if feature[i] == 1:
+        #                     dictionary1[word] = dictionary1[word] + 1
+        #                 else :
+        #                     dictionary0[word] = dictionary0[word] + 1
+        #         else:
+        #             if feature[i] == 1:
+        #                 dictionary1[word] = 1
+        #                 dictionary0[word] = 0
+        #             else:
+        #                 dictionary0[word] = 1
+        #                 dictionary1[word] = 0                    
+        # word_weights= {}  #to store weight of each word
+        # for i in dictionary0:
+        #     word_weights[i]=((dictionary1[i]-dictionary0[i])/(dictionary1[i]+dictionary0[i]))
+        # return word_weights
+
         dictionary1 = {}   #to count the number of times a word contributes to feature=1
         dictionary0 = {}   #to count the number of times a word contributes to feature=0
         words=[] 
-        for i in range(0, len(essay)):   #loop to find both counts(feature=1, feature=0) for each word
-            for word in essay[i].split():
+        for i in range(0,len(essay)):   #loop to find both counts(feature=1, feature=0) for each word
+            words = essay[i].split()
+#         words = set(words)  
+#         words = (list(words)) 
+            for word in words:
                 if word.isalpha():
                     if word in dictionary1.keys():
                         if feature[i] == 1:
                             dictionary1[word] = dictionary1[word] + 1
                         else :
                             dictionary0[word] = dictionary0[word] + 1
-                else:
-                    if feature[i] == 1:
-                        dictionary1[word] = 1
-                        dictionary0[word] = 0
                     else:
-                        dictionary0[word] = 1
-                        dictionary1[word] = 0                    
-        word_weights= {}  #to store weight of each word
+                        if feature[i] == 1:
+                            dictionary1[word] = 1
+                            dictionary0[word] = 0
+                        else:
+                            dictionary0[word] = 1
+                            dictionary1[word] = 0
+                    
+        weight = {}  #to store weight of each word
         for i in dictionary0:
-            word_weights[i]=((dictionary1[i]-dictionary0[i])/(dictionary1[i]+dictionary0[i]))
-        return word_weights
+            weight[i]=((dictionary1[i]-dictionary0[i])/(dictionary1[i]+dictionary0[i]))
+    
+        return weight
 
 
 
