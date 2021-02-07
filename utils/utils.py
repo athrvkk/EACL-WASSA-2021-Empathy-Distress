@@ -126,8 +126,65 @@ class Utils():
         
         
         
-        
-    # -------------------------------------------- Function to generate new features --------------------------------------------
+    # ----------------------------------- Function to calculate weight of each word -----------------------------------
+
+    def get_word_weights(self, essay, feature):
+        ''' Function to calculate weight of each word according to the specified feature
+        @param essay (pd.Series) list of essays.
+        @param feature (pd.Series) The target variable (gold_empthy_bin or gold_distres_bin).
+        @return weight (dict) The dictionary contribution of each word to the feature passed.
+        '''
+        dictionary1 = {}   #to count the number of times a word contributes to feature=1
+        dictionary0 = {}   #to count the number of times a word contributes to feature=0
+        words=[] 
+        for i in range(0, len(essay)):   #loop to find both counts(feature=1, feature=0) for each word
+            for word in essay[i].split():
+                if word.isalpha():
+                    if word in dictionary1.keys():
+                        if feature[i] == 1:
+                            dictionary1[word] = dictionary1[word] + 1
+                        else :
+                            dictionary0[word] = dictionary0[word] + 1
+                else:
+                    if feature[i] == 1:
+                        dictionary1[word] = 1
+                        dictionary0[word] = 0
+                    else:
+                        dictionary0[word] = 1
+                        dictionary1[word] = 0                    
+        word_weights= {}  #to store weight of each word
+        for i in dictionary0:
+            word_weights[i]=((dictionary1[i]-dictionary0[i])/(dictionary1[i]+dictionary0[i]))
+        return word_weights
+
+
+
+
+    # ----------------------------------- Function to calculate score for each Essay -----------------------------------
+
+    def get_essay_score(self, essay, word_weights, transform='original'):
+        ''' Function to calculate score for each Essay.
+        @param essay (list) list of essays.
+        @param word_weights (dict) Tthe dictionary obtained from the wordWeight function
+        @return essay_weight (list): list of weights for each essay.
+        '''
+        essay_weight = []
+        for i in range(0, len(essay)):
+            weight = 0
+            for word in essay[i].split():
+                if word.isalpha():
+                    if word in word_weights.keys():
+                        weight = weight + word_weights[word]
+            essay_weight.append(weight)
+        if transform == "original":
+            return np.reshape(essay_weight, (len(essay_weight), 1))
+        elif transform == "tan-inverse":    
+            np.arctan(np.reshape(essay_weight, (len(essay_weight), 1)))
+
+
+
+
+    # ----------------------------------- Function to generate new features -----------------------------------
             
     def generate_features(df):
         sentiment_analyzer = SentimentIntensityAnalyzer()
