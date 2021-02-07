@@ -15,7 +15,7 @@ from sklearn.utils import class_weight
 from tensorflow.keras.layers import Input, Dense, Dropout, Concatenate, LeakyReLU, PReLU
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.regularizers import l2
-from tensorflow.keras.callbacks import ModelCheckpoint, ReduceLROnPlateau, EarlyStopping
+from tensorflow.keras.callbacks import ModelCheckpoint, ReduceLROnPlateau, EarlyStopping, TensorBoard
 from tensorflow.keras.utils import plot_model
 from tensorflow.keras.models import load_model
 from tensorflow.keras import Model
@@ -119,6 +119,9 @@ class MTLM():
         self.early_stopping = EarlyStopping(monitor='val_score_output_loss', 
                                             patience=20,
                                             verbose=1)
+	# Tensorboard Callback
+	log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+	self.tensorboard = TensorBoard(log_dir=log_dir, histogram_freq=1)
 
 
 
@@ -259,7 +262,7 @@ class MTLM():
                                  batch_size=batch_size, 
                                  verbose=1, 
                                  validation_data = (x_val, y_val),
-                                 callbacks=[self.model_checkpoint_callback, self.reduce_lr_callback, self.early_stopping])
+                                 callbacks=[self.model_checkpoint_callback, self.reduce_lr_callback, self.early_stopping, self.tensorboard])
         return history
 
 
