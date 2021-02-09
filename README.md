@@ -12,3 +12,5 @@
 |Model|Features|Training MSE|Training Correlation|Validation MSE|Validation Correlation|
 |:-------|:--------|:-------|:--------|:--------|:--------|
 |Multi-Task Learning|Essay|2.4154|0.5747|3.1720|0.4130|
+|Multi-Task Learning|Essay + iri + personality|2.0652|0.6687|2.8644|0.5007|
+
