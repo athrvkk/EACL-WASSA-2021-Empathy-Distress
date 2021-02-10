@@ -119,9 +119,6 @@ class MTLM():
         self.early_stopping = EarlyStopping(monitor='val_score_output_loss', 
                                             patience=20,
                                             verbose=1)
-	# Tensorboard Callback
-	log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-	self.tensorboard = TensorBoard(log_dir=log_dir, histogram_freq=1)
 
 
 
@@ -130,28 +127,27 @@ class MTLM():
     # ------------------------------------------------------------ Function to prepare input for respective models ------------------------------------------------------------
     
     def prepare_input(self, utils_obj, df, maxlen=200, padding_type='post', truncating_type='post', mode="train"):
-        # iri_input = df[["iri_perspective_taking", 
-        #                 "iri_personal_distress", 
-        #                 "iri_fantasy", 
-        #                 "iri_empathatic_concern"]].values.tolist()
-        # iri_input = np.reshape(iri_input, (len(iri_input), len(iri_input[0])))
+        iri_input = df[["iri_perspective_taking", 
+                        "iri_personal_distress", 
+                        "iri_fantasy", 
+                        "iri_empathatic_concern"]].values.tolist()
+        iri_input = np.reshape(iri_input, (len(iri_input), len(iri_input[0])))
 
-        # personality_input = df[["personality_conscientiousness", 
-        #                         "personality_openess", 
-        #                         "personality_extraversion", 
-        #                         "personality_agreeableness", 
-        #                         "personality_stability"]].values.tolist()
-        # personality_input = np.reshape(personality_input, (len(personality_input), len(personality_input[0])))
-
+        personality_input = df[["personality_conscientiousness", 
+                                "personality_openess", 
+                                "personality_extraversion", 
+                                "personality_agreeableness", 
+                                "personality_stability"]].values.tolist()
+        personality_input = np.reshape(personality_input, (len(personality_input), len(personality_input[0])))
 
         essay = [pre.clean_text(text, remove_stopwords=False, lemmatize=False) for text in df.essay.values.tolist()]
+        
         if self.base_model_type in self.bert_models:
-            #return [self.base_model.prepare_input(essay, maxlen), iri_input, personality_input]
-            return self.base_model.prepare_input(essay, maxlen)
+            return [self.base_model.prepare_input(essay, maxlen), iri_input, personality_input]
+            #return self.base_model.prepare_input(essay, maxlen)
         else:
-            #return [self.base_model.prepare_input(utils_obj, essay, maxlen, padding_type, truncating_type, mode), iri_input, personality_input]
-            return self.base_model.prepare_input(utils_obj, essay, maxlen, padding_type, truncating_type, mode)
-
+            return [self.base_model.prepare_input(utils_obj, essay, maxlen, padding_type, truncating_type, mode), iri_input, personality_input]
+            #return self.base_model.prepare_input(utils_obj, essay, maxlen, padding_type, truncating_type, mode)
 
 
 
@@ -218,16 +214,25 @@ class MTLM():
         x4 = Dense(32, activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(base_output)
         race = Dense(6, activation='softmax', name='race_output')(x4)
 
-        x = Concatenate(axis=1)([x1, x2, x3, x4])
-        x = Dropout(0.2)(x)
+        iri_input = Input(shape=(4,))
+        x5 = Dense(8, activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(iri_input)
+        
+        personality_input = Input(shape=(5,))
+        x6 = Dense(8, activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(personality_input)
+
+        x = Concatenate(axis=1)([x5, x6])
         x = Dense(32, activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(x)
+        
+        x = Concatenate(axis=1)([x1, x2, x3, x4, x])
+        #x = Dropout(0.2)(x)
+        x = Dense(16, activation=self.activation, kernel_initializer=self.kr_initializer)(x)
         score = Dense(1, name='score_output')(x)
         
         if self.base_model_type in self.bert_models:
-            self.model = Model(inputs=[input_ids, attention_mask], 
+            self.model = Model(inputs=[input_ids, attention_mask, iri_input, personality_input], 
                                outputs=[bin, emotion, gender, education, age, race, score])
         else:
-            self.model = Model(inputs=input, 
+            self.model = Model(inputs=[input, iri_input, personality_input], 
                                outputs=[bin, emotion, gender, education, age, race, score])
         self.model.compile(optimizer=Adam(lr=0.001), 
                            loss={"bin_output":self.binary_loss,                                                           
@@ -262,7 +267,7 @@ class MTLM():
                                  batch_size=batch_size, 
                                  verbose=1, 
                                  validation_data = (x_val, y_val),
-                                 callbacks=[self.model_checkpoint_callback, self.reduce_lr_callback, self.early_stopping, self.tensorboard])
+                                 callbacks=[self.model_checkpoint_callback, self.reduce_lr_callback, self.early_stopping])
         return history
 
 
@@ -283,15 +288,24 @@ class MTLM():
 
     # ------------------------------------------------------------ Function to calculate the Pearson's correlation ------------------------------------------------------------
     
-    def correlation(self, y_true, y_pred):
+    def compute_correlation(self, y_true, y_pred):
         y_pred = y_pred.flatten()
         y_true = y_true.flatten()
         return pearsonr(y_true, y_pred)
         
         
         
-        
-        
+
+
+    # ------------------------------------------------------------ Function to calculate the Pearson's correlation ------------------------------------------------------------
+    
+    def compute_mse(self, y_true, y_pred):  
+        return np.average(losses.mean_squared_error(y_true, y_pred))      
+
+
+
+
+
     # ------------------------------------------------------------ Function to plot model loss ------------------------------------------------------------
     
     def plot_curves(self, history):
@@ -303,7 +317,7 @@ class MTLM():
         plt.legend(['train','validation'], loc='upper left')
         plt.show() 
 
-
+        
 
 
         
