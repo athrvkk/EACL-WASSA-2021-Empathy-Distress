@@ -19,13 +19,14 @@ class BertModel():
     """ Implementation of BERT for regression """
 
 
-    def __init__(self, bert_model="BERT", activation="relu", output_hidden_states=False):
+    def __init__(self, activation, kr_initializer, kr_rate, bert_model="BERT", output_hidden_states=False):
         """ Constructor to initialize Deep learning models
         @param model (str): the model to be used (DNN, CNN, BiLSTM, BERT, DistilBERT, RoBERTa).
         @param output_hidden_states (bool): Whether to output the hidden states of BERT.
         """
         self.activation = activation
-
+        self.kr_rate=  kr_rate
+        self.kr_initializer = kr_initializer
         if bert_model == "BERT":
             config = BertConfig.from_pretrained("bert-base-uncased", output_hidden_states=output_hidden_states)
             self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased", do_lower_case=True)
@@ -41,10 +42,9 @@ class BertModel():
             self.tokenizer = RobertaTokenizer.from_pretrained("roberta-base", do_lower_case=True)
             self.bert = TFRobertaModel.from_pretrained("roberta-base", config=config)
         elif bert_model == "custom":
-            model_name = "nateraw/bert-base-uncased-emotion"
-            #config = AutoConfig.from_pretrained(model_name, output_hidden_states=output_hidden_states)
-            self.tokenizer = AutoTokenizer.from_pretrained(model_name, do_lower_case=True)
-            self.bert = AutoModel.from_pretrained(model_name)
+            model_name = "cardiffnlp/twitter-roberta-base-sentiment"
+            self.tokenizer = AutoTokenizer.from_pretrained(model_name, do_lower_case=True, normalization=True)
+            self.bert = TFAutoModel.from_pretrained(model_name)
 
 
 
@@ -82,13 +82,12 @@ class BertModel():
         attention_mask = Input(shape=(input_length,), name='attention_mask', dtype="int32")
         x = self.bert(input_ids, attention_mask=attention_mask)[0]
         x = GlobalAveragePooling1D()(x)
-        x = Dense(128, activation=self.activation, kernel_regularizer=l2(0.001))(x)
+        x = Dense(128, activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(x)
         out = Dropout(0.2)(x)
 
         model = Model(inputs=[input_ids, attention_mask], outputs=out)
         model.layers[2].trainable = False
         return model
-        
         
         
         
