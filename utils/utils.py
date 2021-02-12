@@ -18,7 +18,7 @@ class Utils():
     """" Class containing various helper functions """   
     
     
-    
+    # -------------------------------------------- Class Constructor --------------------------------------------
     def __init__(self):
         """ Class Constructor """
         self.tokenizer = Tokenizer(oov_token='[oov]')
@@ -134,36 +134,11 @@ class Utils():
         @param feature (pd.Series) The target variable (gold_empthy_bin or gold_distres_bin).
         @return weight (dict) The dictionary contribution of each word to the feature passed.
         '''
-        # dictionary1 = {}   #to count the number of times a word contributes to feature=1
-        # dictionary0 = {}   #to count the number of times a word contributes to feature=0
-        # words=[] 
-        # for i in range(0, len(essay)):   #loop to find both counts(feature=1, feature=0) for each word
-        #     for word in essay[i].split():
-        #         if word.isalpha():
-        #             if word in dictionary1.keys():
-        #                 if feature[i] == 1:
-        #                     dictionary1[word] = dictionary1[word] + 1
-        #                 else :
-        #                     dictionary0[word] = dictionary0[word] + 1
-        #         else:
-        #             if feature[i] == 1:
-        #                 dictionary1[word] = 1
-        #                 dictionary0[word] = 0
-        #             else:
-        #                 dictionary0[word] = 1
-        #                 dictionary1[word] = 0                    
-        # word_weights= {}  #to store weight of each word
-        # for i in dictionary0:
-        #     word_weights[i]=((dictionary1[i]-dictionary0[i])/(dictionary1[i]+dictionary0[i]))
-        # return word_weights
-
         dictionary1 = {}   #to count the number of times a word contributes to feature=1
         dictionary0 = {}   #to count the number of times a word contributes to feature=0
         words=[] 
         for i in range(0,len(essay)):   #loop to find both counts(feature=1, feature=0) for each word
             words = essay[i].split()
-#         words = set(words)  
-#         words = (list(words)) 
             for word in words:
                 if word.isalpha():
                     if word in dictionary1.keys():
@@ -190,7 +165,7 @@ class Utils():
 
     # ----------------------------------- Function to calculate score for each Essay -----------------------------------
 
-    def get_essay_score(self, essay, word_weights, transform='original'):
+    def get_essay_empathy_distress_scores(self, essay, word_weights, transform='original'):
         ''' Function to calculate score for each Essay.
         @param essay (list) list of essays.
         @param word_weights (dict) Tthe dictionary obtained from the wordWeight function
@@ -212,27 +187,51 @@ class Utils():
 
 
 
-    # ----------------------------------- Function to generate new features -----------------------------------
+    # ----------------------------------- Function to get word emotion and vad scores -----------------------------------
             
-    def generate_features(df):
-        sentiment_analyzer = SentimentIntensityAnalyzer()
-        df.gender =  df.gender.apply(lambda x: 2 if x==5 else x)
-        df["vader_scores"] = df.essay.apply(lambda x: [value for value in sentiment_analyzer.polarity_scores(x).values()])
-        return df
+    def get_word_scores(self, sentiment='anger'):
+        path = "/content/gdrive/My Drive/WASSA-2021-Shared-Task/NRC-resources/"+sentiment+"-scores.txt"
+        word_scores = {}
+        with open(path) as f:
+            data = f.readlines()
+            for row in data:
+                row = row.split("\t")
+                row[1] = row[1].split("\n")
+                word_scores[row[0]] = row[1][0]
+        f.close()
+        return word_scores
         
     
     
     
-    # -------------------------------------------- Function to create age bins --------------------------------------------
+    # -------------------------------------------- Function to get essay emotion and vad scores --------------------------------------------
     
-    def categorize_age(self, age):
-        if age >0 and age <=25:
-            return 0
-        elif age >25 and age <=40:
-            return 1
-        elif age >40 and age <=60:
-            return 2
-        elif age >60:
-            return 3
+    def get_essay_emotion_vad_scores(self, essay, essay_length, mode="emotion"):
+        if mode == 'emotion':
+            myList = ['anger', 'anticipation', 'disgust', 'fear', 'joy', 'sadness', 'surprise', 'trust']
+            word_scores_list = []
+            for element in myList:
+                word_scores = self.get_word_scores(element)
+                word_scores_list.append(word_scores)
+            essay_scores = np.zeros((len(essay), len(word_scores_list)))
+            
+        elif mode == 'vad':
+            myList = ['valence', 'arousal', 'dominance']
+            word_scores_list = []
+            for element in myList:
+                word_scores = self.get_word_scores(element)
+                word_scores_list.append(word_scores)
+            essay_scores = np.zeros((len(essay), len(word_scores_list)))
+
+        for i in range(len(essay)):        
+            for j in range(len(word_scores_list)):
+                score = 0
+                for word in essay[i].split():
+                    if word in word_scores_list[j].keys():
+                        score = score + float(word_scores_list[j].get(word))
+                #score = score/essay_length[i]
+                essay_scores[i][j] = score
+        
+        return essay_scores
                 
         
