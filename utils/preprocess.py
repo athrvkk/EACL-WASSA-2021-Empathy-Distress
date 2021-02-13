@@ -6,6 +6,7 @@
 import pandas as pd
 import numpy as np
 import re
+import spacy
 import nltk
 from nltk.corpus import stopwords
 from nltk.corpus import words, wordnet, brown
@@ -43,6 +44,7 @@ class Preprocess():
         self.speller = Speller(lang='en')
         self.wordlist = set(words.words()).union(set(wordnet.words()), set(brown.words()))
         self.nouns = ['NNP', 'NNPS']
+        self.nlp = spacy.load('en_core_web_sm')
         if mode == "normalize":
             self.cont = Contractions(contractions_model_path)
             self.cont.load_models()
@@ -165,12 +167,21 @@ class Preprocess():
         @param remove_stopwords (bool): To remove stopwords or not.
         @param lemmatize (bool): to lemmatize or not.
         """
+        # Remove emails 
+        text = re.sub('\S*@\S*\s?', '', text)
+        
+        # Remove new line characters 
+        text = re.sub('\s+', ' ', text) 
+        
+        # Remove distracting single quotes 
+        text = re.sub("\'", '', text)
+
         # Remove puntuations and numbers
         text = re.sub('[^a-zA-Z]', ' ', text)
 
         # Remove single characters
-        text = re.sub(r"\s+[a-zA-Z]\s+", ' ', text)
-
+        text = re.sub('\s+[a-zA-Z]\s+^I', ' ', text)
+        
         # remove multiple spaces
         text = re.sub(r'\s+', ' ', text)
         text = text.lower()
@@ -181,34 +192,22 @@ class Preprocess():
         # Remove unncecessay stopwords
         if remove_stopwords:
             text = word_tokenize(text)
-            cleaned_text = []
-            for t in text:
-                if t not in self.stop_words:
-                    cleaned_text.append(t)
-
+            text = " ".join([word for word in text if word not in self.stop_words])
+        
         # Word lemmatization
         if lemmatize:
-            if not remove_stopwords:
-                cleaned_text = word_tokenize(text)
-            processed_text = []
-            for t in cleaned_text:
-                word1 = self.wordnet_lemmatizer.lemmatize(t, pos="n")
-                word2 = self.wordnet_lemmatizer.lemmatize(word1, pos="v")
-                word3 = self.wordnet_lemmatizer.lemmatize(word2, pos=("a"))
-                processed_text.append(word3)
-
-        result = ""
-        if not lemmatize:
-            processed_text = cleaned_text
-        for word in processed_text:
-            result = result + word + " "
-        result = result.rstrip()
-
-        return result
+            text = self.nlp(text)
+            lemmatized_text = []
+            for word in text:
+                if word.lemma_.isalpha():
+                    if word.lemma_ != '-PRON-':
+                        lemmatized_text.append(word.lemma_.lower())
+                    else:
+                        lemmatized_text.append(word.lower())
+            text = " ".join([word.lower() for word in lemmatized_text])
+                
+        return text
         
         
         
         
-
-    
-
