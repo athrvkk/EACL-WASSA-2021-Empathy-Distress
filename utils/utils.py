@@ -60,13 +60,13 @@ class Utils():
             
     # -------------------------------------------- Function read dictionary --------------------------------------------
     
-    def get_dict(self, path):
+    def get_dict(self, path, key_column, value_column):
         """ Function to read a file into dictionary.
         @param path (str): path to file.
         return dict: created dictionary.
         """
         data = pd.read_csv(path)
-        return dict(zip(data.iloc[:,0].tolist(), data.iloc[:,1].tolist())) 
+        return dict(zip(data[key_column].values.tolist(), data[value_column].values.tolist()))
 
 
 
@@ -175,9 +175,8 @@ class Utils():
         for i in range(0, len(essay)):
             weight = 0
             for word in essay[i].split():
-                if word.isalpha():
-                    if word in word_weights.keys():
-                        weight = weight + word_weights[word]
+                if word in word_weights.keys():
+                    weight = weight + float(word_weights[word])
             essay_weight.append(weight)
         if transform == "original":
             return np.reshape(essay_weight, (len(essay_weight), 1))
