@@ -118,7 +118,7 @@ class Preprocess():
 
         tokenized_text = text.split()
         
-        abbr_dict = self.utils.get_dict("/home/eastwind/PycharmProjects/WASSA-2021-Shared-Task/resources/social-media-abbreviations.csv")
+        abbr_dict = self.utils.get_dict("/home/eastwind/PycharmProjects/WASSA-2021-Shared-Task/resources/social-media-abbreviations.csv", key_column="acronym", value_column="full_form")
         for i in range(len(tokenized_text)):
             x = re.sub(r'[^\w\s]', '', tokenized_text[i]).lower()
             
