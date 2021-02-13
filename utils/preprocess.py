@@ -202,8 +202,8 @@ class Preprocess():
                 if word.lemma_.isalpha():
                     if word.lemma_ != '-PRON-':
                         lemmatized_text.append(word.lemma_.lower())
-                    else:
-                        lemmatized_text.append(word.lower())
+                    # else:
+                        # lemmatized_text.append(word.lower())
             text = " ".join([word.lower() for word in lemmatized_text])
                 
         return text
