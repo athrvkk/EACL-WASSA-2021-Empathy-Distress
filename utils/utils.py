@@ -125,7 +125,22 @@ class Utils():
         
         
         
-        
+     
+     # -------------------------------------------- Function to create age bins --------------------------------------------
+    
+    def categorize_age(self, age):
+        if age >0 and age <=25:
+            return 0
+        elif age >25 and age <=40:
+            return 1
+        elif age >40 and age <=60:
+            return 2
+        elif age >60:
+            return 3
+            
+            
+            
+               
     # ----------------------------------- Function to calculate weight of each word -----------------------------------
 
     def get_word_weights(self, essay, feature):
@@ -205,7 +220,7 @@ class Utils():
     
     # -------------------------------------------- Function to get essay emotion and vad scores --------------------------------------------
     
-    def get_essay_emotion_vad_scores(self, essay, essay_length, mode="emotion"):
+    def get_essay_emotion_vad_scores(self, essay, essay_length, mode="emotion", normalize=True):
         if mode == 'emotion':
             myList = ['anger', 'anticipation', 'disgust', 'fear', 'joy', 'sadness', 'surprise', 'trust']
             word_scores_list = []
@@ -225,10 +240,13 @@ class Utils():
         for i in range(len(essay)):        
             for j in range(len(word_scores_list)):
                 score = 0
+                cnt = 0
                 for word in essay[i].split():
                     if word in word_scores_list[j].keys():
+                        cnt = cnt = 1
                         score = score + float(word_scores_list[j].get(word))
-                #score = score/essay_length[i]
+                if normalize:
+                    score = score/cnt
                 essay_scores[i][j] = score
         
         return essay_scores
