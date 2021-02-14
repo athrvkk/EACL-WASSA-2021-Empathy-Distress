@@ -220,23 +220,13 @@ class Utils():
     
     # -------------------------------------------- Function to get essay emotion and vad scores --------------------------------------------
     
-    def get_essay_emotion_vad_scores(self, essay, essay_length, mode="emotion", normalize=True):
-        if mode == 'emotion':
-            myList = ['anger', 'anticipation', 'disgust', 'fear', 'joy', 'sadness', 'surprise', 'trust']
-            word_scores_list = []
-            for element in myList:
-                word_scores = self.get_word_scores(element)
-                word_scores_list.append(word_scores)
-            essay_scores = np.zeros((len(essay), len(word_scores_list)))
-            
-        elif mode == 'vad':
-            myList = ['valence', 'arousal', 'dominance']
-            word_scores_list = []
-            for element in myList:
-                word_scores = self.get_word_scores(element)
-                word_scores_list.append(word_scores)
-            essay_scores = np.zeros((len(essay), len(word_scores_list)))
-
+    def get_essay_nrc_scores(self, essay, nrc_features, normalize=True):
+        word_scores_list = []
+        for element in nrc_features:
+            word_scores = self.get_word_scores(element)
+            word_scores_list.append(word_scores)
+        essay_scores = np.zeros((len(essay), len(word_scores_list)))
+        
         for i in range(len(essay)):        
             for j in range(len(word_scores_list)):
                 score = 0
@@ -246,7 +236,8 @@ class Utils():
                         cnt = cnt = 1
                         score = score + float(word_scores_list[j].get(word))
                 if normalize:
-                    score = score/cnt
+                    if cnt!=0:
+                        score = score/cnt
                 essay_scores[i][j] = score
         
         return essay_scores
