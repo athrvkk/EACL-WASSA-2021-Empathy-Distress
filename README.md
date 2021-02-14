@@ -8,7 +8,8 @@
 |Multi-Task Learning|Essay|empathy_bin, emotion, gender, education, race, empathy_score|2.0208|0.6345|2.6589|0.4873|
 |Multi-Task Learning|Essay + sentiment score (TextBlob)|empathy_bin, emotion, gender, education, race, empathy_score|2.0034|0.6442|2.6409|0.4868|
 |Multi-Task Learning|Essay + iri + personality|empathy_bin, emotion, gender, education, age, race, empathy_score|1.4403|0.7666|2.5251|0.5281|
-|Multi-Task Learning|Essay + iri + personality (direct) + gender + education + race + age_bin (entity embeddings)|empathy_bin, emotion empathy_score|1.9357|0.6533|2.4381|0.5414|
+|Multi-Task Learning|Essay + iri + personality (direct) + gender + education + race + age_bin (integer-encoded entity embeddings)|empathy_bin, emotion empathy_score|1.9357|0.6533|2.4381|0.5414|
+|Multi-Task Learning|Essay + iri + personality (direct) + gender + education + race + age_bin (onehot-encoded entity embeddings)|empathy_bin, emotion empathy_score|1.8581|0.6688|2.4217|0.5461|
 
 
 ## Distress Results:
