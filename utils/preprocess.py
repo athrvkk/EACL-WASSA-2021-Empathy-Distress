@@ -50,6 +50,8 @@ class Preprocess():
             self.cont.load_models()
             
         
+            
+        
         
        
      
@@ -118,7 +120,7 @@ class Preprocess():
 
         tokenized_text = text.split()
         
-        abbr_dict = self.utils.get_dict("/home/eastwind/PycharmProjects/WASSA-2021-Shared-Task/resources/social-media-abbreviations.csv", key_column="acronym", value_column="full_form")
+        abbr_dict = self.utils.get_dict("/home/eastwind/PycharmProjects/WASSA-2021-Shared-Task/resources/custom-dictionaries/social-media-abbreviations.csv", key_column="acronym", value_column="full_form")
         for i in range(len(tokenized_text)):
             x = re.sub(r'[^\w\s]', '', tokenized_text[i]).lower()
             
@@ -129,18 +131,16 @@ class Preprocess():
             # Expand contracitons
             tokenized_text[i] = self.expand_contractions(tokenized_text[i])    
         
-        # Get Part of speech for each word
-        tokens_pos = nltk.pos_tag(tokenized_text)
+        text = " ".join([word for word in tokenized_text])
+        text = self.nlp(text)
 
         # Remove wordplay
-        tokenized_text = [self.remove_wordplay(word, pos) for word, pos in tokens_pos]
+        text = " ".join([self.remove_wordplay(word.text, word.tag_) for word in text])
         
-        # Combine words into sentence.    
-        text = ""
-        for word in tokenized_text:
-            text = text + " " + word
-        
-        text = self.speller(text)
+        # Correct Spellings
+        text = self.nlp(text)
+        text = " ".join([self.correct_spelling(word.text, word.tag_) for word in text])
+        #text = self.speller(text)
         return text
         
 
