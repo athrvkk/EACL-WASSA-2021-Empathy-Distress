@@ -140,7 +140,21 @@ class Utils():
             
             
             
-               
+            
+    # -------------------------------------------- Function to create age bins --------------------------------------------
+    
+    def categorize_income(self, income):
+        if income >0 and income <=25000:
+            return 0
+        elif income >25000 and income <=75000:
+            return 1
+        elif income >75000:
+            return 2
+      
+            
+            
+            
+                       
     # ----------------------------------- Function to calculate weight of each word -----------------------------------
 
     def get_word_weights(self, essay, feature):
@@ -220,7 +234,7 @@ class Utils():
     
     # -------------------------------------------- Function to get essay emotion and vad scores --------------------------------------------
     
-    def get_essay_nrc_scores(self, essay, nrc_features, normalize=True):
+    def get_essay_nrc_scores(self, essay, nrc_features, normalize=False):
         word_scores_list = []
         for element in nrc_features:
             word_scores = self.get_word_scores(element)
@@ -235,9 +249,6 @@ class Utils():
                     if word in word_scores_list[j].keys():
                         cnt = cnt = 1
                         score = score + float(word_scores_list[j].get(word))
-                if normalize:
-                    if cnt!=0:
-                        score = score/cnt
                 essay_scores[i][j] = score
         
         return essay_scores

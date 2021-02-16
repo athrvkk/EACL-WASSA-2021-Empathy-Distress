@@ -13,7 +13,7 @@ from nltk.corpus import words, wordnet, brown
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 import unicodedata
-#from pycontractions import Contractions
+from pycontractions import Contractions
 from autocorrect import Speller
 from utils import Utils
 
