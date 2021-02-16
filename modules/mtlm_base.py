@@ -127,26 +127,10 @@ class MTLM():
     # ------------------------------------------------------------ Function to prepare input for respective models ------------------------------------------------------------
     
     def prepare_input(self, utils_obj, df, maxlen=200, padding_type='post', truncating_type='post', mode="train"):
-        # iri_input = df[["iri_perspective_taking", 
-        #                 "iri_personal_distress", 
-        #                 "iri_fantasy", 
-        #                 "iri_empathatic_concern"]].values.tolist()
-        # iri_input = np.reshape(iri_input, (len(iri_input), len(iri_input[0])))
-
-        # personality_input = df[["personality_conscientiousness", 
-        #                         "personality_openess", 
-        #                         "personality_extraversion", 
-        #                         "personality_agreeableness", 
-        #                         "personality_stability"]].values.tolist()
-        # personality_input = np.reshape(personality_input, (len(personality_input), len(personality_input[0])))
-
-
         essay = [pre.clean_text(text, remove_stopwords=False, lemmatize=False) for text in df.essay.values.tolist()]
         if self.base_model_type in self.bert_models:
-            #return [self.base_model.prepare_input(essay, maxlen), iri_input, personality_input]
             return self.base_model.prepare_input(essay, maxlen)
         else:
-            #return [self.base_model.prepare_input(utils_obj, essay, maxlen, padding_type, truncating_type, mode), iri_input, personality_input]
             return self.base_model.prepare_input(utils_obj, essay, maxlen, padding_type, truncating_type, mode)
 
 
@@ -167,14 +151,12 @@ class MTLM():
             emotion = self.emotion_encoder.fit_transform(emotion)
             gender = self.gender_encoder.fit_transform(gender)
             education = self.education_encoder.fit_transform(education)
-            #age = self.age_encoder.fit_transform(age)
             race = self.race_encoder.fit_transform(race)
 
         elif mode == "dev" or "test":
             emotion = self.emotion_encoder.transform(emotion)
             gender = self.gender_encoder.transform(gender)
             education = self.education_encoder.transform(education)
-            #age = self.age_encoder.transform(age)
             race = self.race_encoder.transform(race)
 
         if task == "empathy":

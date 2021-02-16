@@ -30,7 +30,14 @@ class MTLM():
 
     # ------------------------------------------------------------ Constructor ------------------------------------------------------------
     
-    def __init__(self, base_model_type="CNN", activation="relu", kr_rate=0.001, score_loss="mse", binary_loss="binary_crossentropy", multiclass_loss="sparse_categorical_crossentropy", cpkt="trial"):
+    def __init__(self, word_weight_column="weights", base_model_type="CNN", activation="relu", kr_rate=0.001, score_loss="mse", binary_loss="binary_crossentropy", multiclass_loss="sparse_categorical_crossentropy", cpkt="trial"):
+        self.word_weights = word_weights = utils.get_dict("/content/gdrive/My Drive/WASSA-2021-Shared-Task/empathy_word_weights.csv",
+                                                          key_column="words",
+                                                          value_column=word_weight_column)
+        self.iri_features = ["iri_perspective_taking", "iri_personal_distress", "iri_fantasy", "iri_empathatic_concern"]
+        self.personality_features = ["personality_conscientiousness", "personality_openess", "personality_extraversion", "personality_agreeableness", "personality_stability"]
+        self.liwc_features = []
+        self.empath_features = []
         
         self.kr_rate = kr_rate
         # Set the model activation:
@@ -92,13 +99,31 @@ class MTLM():
         self.race_encoder = LabelEncoder()
         self.emotion_encoder = LabelEncoder()
         self.age_encoder = LabelEncoder()
-        
-        # ModelCheckPoint Callback:
 
+        self.gender_onehot_encoder = OneHotEncoder(sparse=False)
+        self.education_onehot_encoder = OneHotEncoder(sparse=False)
+        self.race_onehot_encoder = OneHotEncoder(sparse=False)
+        self.emotion_onehot_encoder = OneHotEncoder(sparse=False)
+        self.age_onehot_encoder = OneHotEncoder(sparse=False)
+        
+        self.polarity_subjectivity_scaler = MinMaxScaler(feature_range=(1, 7))
+        self.emotion_lexicon_scaler = MinMaxScaler(feature_range=(1, 7))
+        self.vad_lexicon_scaler = MinMaxScaler(feature_range=(1, 7))
+        self.iri_scaler = MinMaxScaler(feature_range=(1, 7))
+        self.personality_scaler = MinMaxScaler(feature_range=(1, 7))
+
+        # self.polarity_subjectivity_scaler = StandardScaler()
+        # self.emotion_lexicon_scaler = StandardScaler()
+        # self.vad_lexicon_scaler = StandardScaler()
+        # self.iri_scaler = StandardScaler()
+        # self.personality_scaler = StandardScaler()
+
+        # ModelCheckPoint Callback:
         if score_loss == "huber":
-            cpkt = cpkt + "-{}-{}".format(score_loss, delta)
+            cpkt = cpkt + "-kr-{}-{}-{}-{}".format(self.kr_rate, self.activation, score_loss, delta)
         else:
-            cpkt = cpkt + "-{}".format(score_loss)
+            cpkt = cpkt + "-kr-{}-{}-{}".format(self.kr_rate, self.activation, score_loss)
+
         cpkt = cpkt + "-epoch-{epoch:02d}-val-loss-{val_score_output_loss:02f}.h5"
         checkpoint_filepath = "/content/gdrive/My Drive/WASSA-2021-Shared-Task/model-weights/"+ cpkt
         self.model_checkpoint_callback = ModelCheckpoint(filepath=checkpoint_filepath,
@@ -117,8 +142,12 @@ class MTLM():
                                                     verbose=1)
         # Early Stopping
         self.early_stopping = EarlyStopping(monitor='val_score_output_loss', 
-                                            patience=20,
+                                            patience=40,
                                             verbose=1)
+        print("\nActivation: ", self.activation)
+        print("Kernel Initializer: ", self.kr_initializer)
+        print("Kernel Regularizing Rate: ", self.kr_rate)
+        print("\n")
 
 
 
@@ -127,27 +156,88 @@ class MTLM():
     # ------------------------------------------------------------ Function to prepare input for respective models ------------------------------------------------------------
     
     def prepare_input(self, utils_obj, df, maxlen=200, padding_type='post', truncating_type='post', mode="train"):
-        iri_input = df[["iri_perspective_taking", 
-                        "iri_personal_distress", 
-                        "iri_fantasy", 
-                        "iri_empathatic_concern"]].values.tolist()
-        iri_input = np.reshape(iri_input, (len(iri_input), len(iri_input[0])))
-
-        personality_input = df[["personality_conscientiousness", 
-                                "personality_openess", 
-                                "personality_extraversion", 
-                                "personality_agreeableness", 
-                                "personality_stability"]].values.tolist()
-        personality_input = np.reshape(personality_input, (len(personality_input), len(personality_input[0])))
+        # polarity_subjectivity_score = [TextBlob(text).sentiment for text in df.essay.values.tolist()]
 
         essay = [pre.clean_text(text, remove_stopwords=False, lemmatize=False) for text in df.essay.values.tolist()]
+        #lemmatized_essay = [pre.clean_text(text, remove_stopwords=False, lemmatize=False) for text in df.essay.values.tolist()]
+        #essay_weight_score = utils.get_essay_empathy_distress_scores(lemmatized_essay, self.word_weights)
+
+        # emotion_lexicon_score = utils.get_essay_emotion_vad_scores(essay, df.WC.values.tolist(), mode="emotion")
+        # vad_lexicon_score = utils.get_essay_emotion_vad_scores(essay, df.WC.values.tolist(), mode="vad")
+        
+        gender = np.reshape(df.gender.values.tolist(), (len(df), 1))
+        education = np.reshape(df.education.values.tolist(), (len(df), 1))
+        race = np.reshape(df.race.values.tolist(), (len(df), 1))
+        age = np.reshape(df.age.apply(lambda x: utils.categorize_age(x)).values.tolist(), (len(df), 1))
+
+        iri_input = df[self.iri_features].values.tolist()
+        personality_input = df[self.personality_features].values.tolist()
+
+        if mode == "train":
+            gender = self.gender_encoder.fit_transform(gender)
+            gender = np.reshape(gender, (len(gender), 1))
+            gender = self.gender_onehot_encoder.fit_transform(gender)
+        
+            education = self.education_encoder.fit_transform(education)
+            education = np.reshape(education, (len(education), 1))
+            education = self.education_onehot_encoder.fit_transform(education)
+
+            race = self.race_encoder.fit_transform(race)
+            race = np.reshape(race, (len(race), 1))
+            race = self.race_onehot_encoder.fit_transform(race)
+
+            age = self.age_encoder.fit_transform(age)
+            age = np.reshape(age, (len(age), 1))
+            age = self.age_onehot_encoder.fit_transform(age)
+        #     polarity_subjectivity_score = self.polarity_subjectivity_scaler.fit_transform(polarity_subjectivity_score)
+        #     emotion_lexicon_score = self.emotion_lexicon_scaler.fit_transform(emotion_lexicon_score)
+        #     vad_lexicon_score = self.vad_lexicon_scaler.fit_transform(vad_lexicon_score)
+        #     iri_input = self.iri_scaler.fit_transform(iri_input)
+        #     personality_input = self.personality_scaler.fit_transform(personality_input)
+
+        elif mode == "dev" or "test":
+            gender = self.gender_encoder.transform(gender)
+            gender = np.reshape(gender, (len(gender), 1))
+            gender = self.gender_onehot_encoder.transform(gender)
+        
+            education = self.education_encoder.transform(education)
+            education = np.reshape(education, (len(education), 1))
+            education = self.education_onehot_encoder.transform(education)
+
+            race = self.race_encoder.transform(race)
+            race = np.reshape(race, (len(race), 1))
+            race = self.race_onehot_encoder.transform(race)
+
+            age = self.age_encoder.transform(age)
+            age = np.reshape(age, (len(age), 1))
+            age = self.age_onehot_encoder.transform(age)
+        #     polarity_subjectivity_score = self.polarity_subjectivity_scaler.transform(polarity_subjectivity_score)
+        #     emotion_lexicon_score = self.emotion_lexicon_scaler.transform(emotion_lexicon_score)
+        #     vad_lexicon_score = self.vad_lexicon_scaler.transform(vad_lexicon_score)
+        #     iri_input = self.iri_scaler.transform(iri_input)
+        #     personality_input = self.personality_scaler.transform(personality_input)
+        
+        # polarity_subjectivity_score = np.reshape(polarity_subjectivity_score, (len(polarity_subjectivity_score), len(polarity_subjectivity_score[0])))
+
+        iri_input = np.reshape(iri_input, (len(iri_input), len(iri_input[0])))
+        personality_input = np.reshape(personality_input, (len(personality_input), len(personality_input[0])))
         
         if self.base_model_type in self.bert_models:
-            return [self.base_model.prepare_input(essay, maxlen), iri_input, personality_input]
-            #return self.base_model.prepare_input(essay, maxlen)
+            return [self.base_model.prepare_input(essay, maxlen), 
+                    gender,
+                    education,
+                    race,
+                    age,
+                    iri_input, 
+                    personality_input]
         else:
-            return [self.base_model.prepare_input(utils_obj, essay, maxlen, padding_type, truncating_type, mode), iri_input, personality_input]
-            #return self.base_model.prepare_input(utils_obj, essay, maxlen, padding_type, truncating_type, mode)
+            return [self.base_model.prepare_input(utils_obj, essay, maxlen, padding_type, truncating_type, mode), 
+                    gender,
+                    education,
+                    race,
+                    age,
+                    iri_input, 
+                    personality_input]
 
 
 
@@ -156,34 +246,22 @@ class MTLM():
     # ------------------------------------------------------------ Funciton to prepare model outputs ------------------------------------------------------------
     
     def prepare_output(self,utils,  df, task="empathy", mode="train"):
-        emotion = np.reshape(df.gold_emotion.values.tolist(), (len(df), 1))
-        gender = np.reshape(df.gender.values.tolist(), (len(df), 1))
-        education = np.reshape(df.education.values.tolist(), (len(df), 1))
-        race = np.reshape(df.race.values.tolist(), (len(df), 1))
-        age = np.reshape(df.age.apply(lambda x: utils.categorize_age(x)).values.tolist(), (len(df), 1))
+        emotion = np.reshape(df.gold_emotion.values.tolist(), (len(df), 1))   
 
         if mode == "train":
             emotion = self.emotion_encoder.fit_transform(emotion)
-            gender = self.gender_encoder.fit_transform(gender)
-            education = self.education_encoder.fit_transform(education)
-            age = self.age_encoder.fit_transform(age)
-            race = self.race_encoder.fit_transform(race)
 
         elif mode == "dev" or "test":
             emotion = self.emotion_encoder.transform(emotion)
-            gender = self.gender_encoder.transform(gender)
-            education = self.education_encoder.transform(education)
-            age = self.age_encoder.transform(age)
-            race = self.race_encoder.transform(race)
 
         if task == "empathy":
             score = np.reshape(df.gold_empathy.values.tolist(), (len(df), 1))
             bin = np.reshape(df.gold_empathy_bin.values.tolist(), (len(df), 1))
-            return [bin, emotion, gender, education, age, race, score]
+            return [bin, emotion, score]
         if task == "distress":
             score = np.reshape(df.gold_distress.values.tolist(), (len(df), 1))
             bin = np.reshape(df.gold_distress_bin.values.tolist(), (len(df), 1))
-            return[bin, emotion, gender, education, age, race, score]
+            return[bin, emotion, score]
 
 
 
@@ -200,47 +278,112 @@ class MTLM():
             input = Input(shape=(input_length,), name="base_model_input")
             base_output = self.base_model.build(input_length, embedding_matrix)(input)
 
-        x1 = Dense(32, activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(base_output)
+        # Predict Bin
+        # essay_weight_score_input = Input(shape=(1,))
+        # essay_weight_score_dense = Dense(4, activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(essay_weight_score_input)
+
+        x1 = Dense(16, activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(base_output)
         bin = Dense(1, activation="sigmoid", name='bin_output')(x1)
 
-        x2 = Dense(32, activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(base_output)
+        # Predict Emotion
+        # emotion_lexicon_input = Input(shape=(8,), name="emotion_lexicon_input")
+        # emoiton_lexicon_dense = Dense(5, activation=self.activation, kernel_initializer=self.kr_initializer)(emotion_lexicon_input)
+
+        # vad_lexicon_input = Input(shape=(3,), name="vad_lexicon_input")
+        # vad_lexicon_dense = Dense(2, activation=self.activation, kernel_initializer=self.kr_initializer)(vad_lexicon_input)
+
+        # polarity_subjectivity_input = Input(shape=(2,), name="polarity_subjectivity_input")
+        # polarity_subjectivity_dense = Dense(2, activation=self.activation, kernel_initializer=self.kr_initializer)(polarity_subjectivity_input)
+
+        # emotion_dense = Concatenate(axis=1)([emotion_lexicon_input, vad_lexicon_input, polarity_subjectivity_input])
+        # emotion_dense = Dense(8, activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(emotion_dense)
+
+        x2 = Dense(16, activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(base_output)
+        # x2 = Concatenate(axis=1)([x2, polarity_subjectivity_dense])
         emotion = Dense(7, activation='softmax', name='emotion_output')(x2)
 
-        x3 = Dense(32, activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(base_output)
-        gender = Dense(3, activation='softmax', name='gender_output')(x3)
-        education = Dense(6, activation='softmax', name='education_output')(x3)
-        age = Dense(4, activation='softmax', name='age_output')(x3)
+        # Predict Gender
+        # x3 = Dense(16, activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(base_output)
+        # gender = Dense(3, activation='softmax', name='gender_output')(x3)
+
+        # Predict Education
+        # x4 = Dense(16, activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(base_output)
+        # education = Dense(6, activation='softmax', name='education_output')(x4)
   
-        x4 = Dense(32, activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(base_output)
-        race = Dense(6, activation='softmax', name='race_output')(x4)
+        # Predict Race
+        # x5 = Dense(16, activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(base_output)
+        # race = Dense(6, activation='softmax', name='race_output')(x5)
 
-        iri_input = Input(shape=(4,))
-        x5 = Dense(8, activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(iri_input)
+        # Categorical data inputs:
+
+        gender_input = Input(shape=(3,), name='gender_input')
+        gender_embedding = Embedding(input_dim=3, output_dim=3, trainable=True)(gender_input)
+        gender_embedding = Flatten()(gender_embedding)
+
+        education_input = Input(shape=(6,), name='education_input')
+        education_embedding = Embedding(input_dim=6, output_dim=3, trainable=True)(education_input)
+        education_embedding = Flatten()(education_embedding)
+
+        race_input = Input(shape=(6,), name='race_input')
+        race_embedding = Embedding(input_dim=6, output_dim=3, trainable=True)(race_input)
+        race_embedding = Flatten()(race_embedding)
+
+        age_input = Input(shape=(4,), name='age_input')
+        age_embedding = Embedding(input_dim=4, output_dim=3, trainable=True)(age_input)
+        age_embedding = Flatten()(age_embedding)
+
+        # gender_input = Input(shape=(1,), name='gender_input')
+        # gender_embedding = Embedding(input_dim=3, output_dim=3, trainable=True)(gender_input)
+        # gender_embedding = Reshape(target_shape=(3,))(gender_embedding)
+
+        # education_input = Input(shape=(1,), name='education_input')
+        # education_embedding = Embedding(input_dim=6, output_dim=3, trainable=True)(education_input)
+        # education_embedding = Reshape(target_shape=(3,))(education_embedding)
+
+        # race_input = Input(shape=(1,), name='race_input')
+        # race_embedding = Embedding(input_dim=6, output_dim=3, trainable=True)(race_input)
+        # race_embedding = Reshape(target_shape=(3,))(race_embedding)
+
+        # age_input = Input(shape=(1,), name='age_input')
+        # age_embedding = Embedding(input_dim=4, output_dim=3, trainable=True)(age_input)
+        # age_embedding = Reshape(target_shape=(3,))(age_embedding)
+
+        categorical_concat = Concatenate(axis=1)([gender_embedding, education_embedding, race_embedding, age_embedding])
+        categorical_dense = Dense(32, activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(categorical_concat)
+        categorical_dense = Dense(16, activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(categorical_dense)
+
+        # IRI Input
+        iri_input = Input(shape=(4,), name="iri_input")
+        x6 = Dense(8, activation=self.activation, kernel_initializer=self.kr_initializer)(iri_input)
         
-        personality_input = Input(shape=(5,))
-        x6 = Dense(8, activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(personality_input)
+        # Big 5 Personality Input
+        personality_input = Input(shape=(5,), name="personality_input")
+        x7 = Dense(8, activation=self.activation, kernel_initializer=self.kr_initializer)(personality_input)
 
-        x = Concatenate(axis=1)([x5, x6])
+        x = Concatenate(axis=1)([x6, x7])
         x = Dense(32, activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(x)
         
-        x = Concatenate(axis=1)([x1, x2, x3, x4, x])
-        #x = Dropout(0.2)(x)
+        # Predict Score
+        x = Concatenate(axis=1)([x1, x2, categorical_dense, x])
         x = Dense(16, activation=self.activation, kernel_initializer=self.kr_initializer)(x)
         score = Dense(1, name='score_output')(x)
         
         if self.base_model_type in self.bert_models:
-            self.model = Model(inputs=[input_ids, attention_mask, iri_input, personality_input], 
-                               outputs=[bin, emotion, gender, education, age, race, score])
+            self.model = Model(inputs=[input_ids, 
+                                       attention_mask,
+                                       gender_input,
+                                       education_input,
+                                       race_input,
+                                       age_input,
+                                       iri_input,
+                                       personality_input], 
+                               outputs=[bin, emotion, score])
         else:
             self.model = Model(inputs=[input, iri_input, personality_input], 
-                               outputs=[bin, emotion, gender, education, age, race, score])
+                               outputs=[bin, emotion, score])
         self.model.compile(optimizer=Adam(lr=0.001), 
                            loss={"bin_output":self.binary_loss,                                                           
                                  "emotion_output":self.multiclass_loss,
-                                 "gender_output":self.multiclass_loss,
-                                 "education_output":self.multiclass_loss,
-                                 "age_output":self.multiclass_loss,
-                                 "race_output":self.multiclass_loss,
                                  "score_output":self.score_loss},
                            metrics={"score_output":self.score_metric})
         self.model.summary()
@@ -318,8 +461,6 @@ class MTLM():
         plt.show() 
 
         
-
-
         
         
         
