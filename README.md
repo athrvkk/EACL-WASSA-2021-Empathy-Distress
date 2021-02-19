@@ -19,7 +19,7 @@
 |Model|Input|Output|Training MSE|Training Correlation|Validation MSE|Validation Correlation|
 |:-------|:--------|:-------|:--------|:--------|:--------|:--------|
 |RoBERTa Base Model|Essay|empathy_score| 2.4419|0.5669|3.1516|0.4130|
-|RoBERTa + multi input|Essay + iri_scores + personality_scores|empathy_score|1.7810|0.6896|2.5915|0.5042|
+|RoBERTa + multi input|Essay + iri_scores + personality_scores|empathy_score|2.195|0.6399|2.8154|0.4992|
 |Multi-Task Learning|Essay|empathy_bin, emotion, gender, education, age, race, empathy_score|2.4154|0.5747|3.1720|0.4130|
 |Multi-Task Learning|Essay + iri + personality|empathy_bin, emotion, gender, education, age, race, empathy_score|2.0652|0.6687|2.8644|0.5007|
 
