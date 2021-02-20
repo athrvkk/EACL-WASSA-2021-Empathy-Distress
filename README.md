@@ -23,6 +23,7 @@
 |RoBERTa Base Model|Essay|empathy_score| 2.4419|0.5669|3.1516|0.4130|
 |RoBERTa + multi input|Essay + iri_scores + personality_scores|empathy_score|2.195|0.6399|2.8154|0.4992|
 |RoBERTa + multi input|Essay + standardized iri_scores + standardized personality_scores|empathy_score|2.0843|0.6599|2.5623|0.558|
+|RoBERTa + multi input|Essay + iri_scores + personality_scores + entity embeddings (age, gender, education, race, emotion)|empathy_score|2.2302|0.6409|2.8275|0.4964|
 |Multi-Task Learning|Essay|empathy_bin, emotion, gender, education, age, race, empathy_score|2.4154|0.5747|3.1720|0.4130|
 |Multi-Task Learning|Essay + iri + personality|empathy_bin, emotion, gender, education, age, race, empathy_score|2.0652|0.6687|2.8644|0.5007|
 
