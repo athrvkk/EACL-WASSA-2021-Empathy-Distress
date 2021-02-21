@@ -8,6 +8,7 @@
 |RoBERTa + multi input|Essay + iri_scores + personality_scores|empathy_score|1.7810|0.6896|2.5915|0.5042|
 |RoBERTa + multi input|Essay + standardized iri_scores + standardized personality_scores|empathy_score|2.042|0.6302|2.6173|0.4941|
 |RoBERTa + multi input|Essay + iri_scores + personality_scores + entity embeddings (age, gender, education, race, emotion)|empathy_score|1.9700|0.6474|2.59929|0.5059|
+|RoBERTa + multi input|Essay + iri_scores + personality_scores + entity embeddings (age, gender, education, race)|empathy_score|1.8393|0.6838|2.5361|0.5151|
 |Multi-Task Learning|Essay|empathy_bin, emotion, gender, education, age, race, empathy_score|1.9714|0.6403|2.6818|0.4772|
 |Multi-Task Learning|Essay|empathy_bin, emotion, gender, education, race, empathy_score|2.0208|0.6345|2.6589|0.4873|
 |Multi-Task Learning|Essay + sentiment score (TextBlob)|empathy_bin, emotion, gender, education, race, empathy_score|2.0034|0.6442|2.6409|0.4868|
