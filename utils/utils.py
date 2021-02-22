@@ -218,7 +218,7 @@ class Utils():
     # ----------------------------------- Function to get word emotion and vad scores -----------------------------------
             
     def get_word_scores(self, sentiment='anger'):
-        path = "/content/gdrive/My Drive/WASSA-2021-Shared-Task/NRC-resources/"+sentiment+"-scores.txt"
+        path = "/content/gdrive/My Drive/WASSA-2021-Shared-Task/resources/NRC-resources/"+sentiment+"-scores.txt"
         word_scores = {}
         with open(path) as f:
             data = f.readlines()

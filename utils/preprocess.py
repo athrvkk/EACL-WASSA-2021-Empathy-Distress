@@ -13,7 +13,7 @@ from nltk.corpus import words, wordnet, brown
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 import unicodedata
-from pycontractions import Contractions
+#from pycontractions import Contractions
 from autocorrect import Speller
 from utils import Utils
 
@@ -48,8 +48,6 @@ class Preprocess():
         if mode == "normalize":
             self.cont = Contractions(contractions_model_path)
             self.cont.load_models()
-            
-        
             
         
         
@@ -120,7 +118,7 @@ class Preprocess():
 
         tokenized_text = text.split()
         
-        abbr_dict = self.utils.get_dict("/home/eastwind/PycharmProjects/WASSA-2021-Shared-Task/resources/custom-dictionaries/social-media-abbreviations.csv", key_column="acronym", value_column="full_form")
+        abbr_dict = self.utils.get_dict("../resources/nrc-resources/social-media-abbreviations.csv", key_column="acronym", value_column="full_form")
         for i in range(len(tokenized_text)):
             x = re.sub(r'[^\w\s]', '', tokenized_text[i]).lower()
             
@@ -131,16 +129,18 @@ class Preprocess():
             # Expand contracitons
             tokenized_text[i] = self.expand_contractions(tokenized_text[i])    
         
-        text = " ".join([word for word in tokenized_text])
-        text = self.nlp(text)
+        # Get Part of speech for each word
+        tokens_pos = nltk.pos_tag(tokenized_text)
 
         # Remove wordplay
-        text = " ".join([self.remove_wordplay(word.text, word.tag_) for word in text])
+        tokenized_text = [self.remove_wordplay(word, pos) for word, pos in tokens_pos]
         
-        # Correct Spellings
-        text = self.nlp(text)
-        text = " ".join([self.correct_spelling(word.text, word.tag_) for word in text])
-        #text = self.speller(text)
+        # Combine words into sentence.    
+        text = ""
+        for word in tokenized_text:
+            text = text + " " + word
+        
+        text = self.speller(text)
         return text
         
 
