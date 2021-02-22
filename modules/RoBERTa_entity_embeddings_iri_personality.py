@@ -1,5 +1,5 @@
-# File contatins Class for Mutli-task learning model 
-# File: mtlm.py
+# File contatins RoBERTa model with entity embeddings and IRI and Personality Inputs
+# File: RoBERTa_entity_embeddings_iri_personality.py
 # Author: Atharva Kulkarni
 
 import sys
@@ -25,12 +25,15 @@ from tensorflow.keras import Model
 
 
 
+
 class MTLM():
 
 
     # ------------------------------------------------------------ Constructor ------------------------------------------------------------
     
-    def __init__(self, base_model_type="CNN", activation="relu", kr_rate=0.001, score_loss="mse", binary_loss="binary_crossentropy", multiclass_loss="sparse_categorical_crossentropy", cpkt="trial"):
+    def __init__(self, word_weight_column="weights", base_model_type="CNN", activation="relu", kr_rate=0.001, score_loss="mse", binary_loss="binary_crossentropy", multiclass_loss="sparse_categorical_crossentropy", cpkt="trial"):
+        self.iri_features = ["iri_perspective_taking", "iri_personal_distress", "iri_fantasy", "iri_empathatic_concern"]
+        self.personality_features = ["personality_conscientiousness", "personality_openess", "personality_extraversion", "personality_agreeableness", "personality_stability"]
         
         self.kr_rate = kr_rate
         # Set the model activation:
@@ -90,35 +93,46 @@ class MTLM():
         self.gender_encoder = LabelEncoder()
         self.education_encoder = LabelEncoder()
         self.race_encoder = LabelEncoder()
-        self.emotion_encoder = LabelEncoder()
         self.age_encoder = LabelEncoder()
-        
-        # ModelCheckPoint Callback:
 
+        self.gender_onehot_encoder = OneHotEncoder(sparse=False)
+        self.education_onehot_encoder = OneHotEncoder(sparse=False)
+        self.race_onehot_encoder = OneHotEncoder(sparse=False)
+        self.age_onehot_encoder = OneHotEncoder(sparse=False)
+
+        self.iri_scaler = StandardScaler()
+        self.personality_scaler = StandardScaler()
+
+        # ModelCheckPoint Callback:
         if score_loss == "huber":
-            cpkt = cpkt + "-{}-{}".format(score_loss, delta)
+            cpkt = cpkt + "-kr-{}-{}-{}-{}".format(self.kr_rate, self.activation, score_loss, delta)
         else:
-            cpkt = cpkt + "-{}".format(score_loss)
-        cpkt = cpkt + "-epoch-{epoch:02d}-val-loss-{val_score_output_loss:02f}.h5"
+            cpkt = cpkt + "-kr-{}-{}-{}".format(self.kr_rate, self.activation, score_loss)
+
+        cpkt = cpkt + "-epoch-{epoch:02d}-val-loss-{val_loss:02f}.h5"
         checkpoint_filepath = "/content/gdrive/My Drive/WASSA-2021-Shared-Task/model-weights/"+ cpkt
         self.model_checkpoint_callback = ModelCheckpoint(filepath=checkpoint_filepath,
                                                     save_weights_only=True,
-                                                    monitor='val_score_output_loss',
+                                                    monitor='val_loss',
                                                     mode='auto',
                                                     save_freq = 'epoch',
                                                     save_best_only=True)
 
         # Reduce Learning Rate on Plateau Callback:
-        self.reduce_lr_callback = ReduceLROnPlateau(monitor='val_score_output_loss', 
+        self.reduce_lr_callback = ReduceLROnPlateau(monitor='val_loss', 
                                                     mode='auto',
                                                     factor=0.2, 
                                                     patience=10, 
                                                     min_lr=0.0005, 
                                                     verbose=1)
         # Early Stopping
-        self.early_stopping = EarlyStopping(monitor='val_score_output_loss', 
+        self.early_stopping = EarlyStopping(monitor='val_loss', 
                                             patience=20,
                                             verbose=1)
+        print("\nActivation: ", self.activation)
+        print("Kernel Initializer: ", self.kr_initializer)
+        print("Kernel Regularizing Rate: ", self.kr_rate)
+        print("\n")
 
 
 
@@ -128,11 +142,74 @@ class MTLM():
     
     def prepare_input(self, utils_obj, df, maxlen=200, padding_type='post', truncating_type='post', mode="train"):
         essay = [pre.clean_text(text, remove_stopwords=False, lemmatize=False) for text in df.essay.values.tolist()]
-        if self.base_model_type in self.bert_models:
-            return self.base_model.prepare_input(essay, maxlen)
-        else:
-            return self.base_model.prepare_input(utils_obj, essay, maxlen, padding_type, truncating_type, mode)
 
+        gender = np.reshape(df.gender.values.tolist(), (len(df), 1))
+        education = np.reshape(df.education.values.tolist(), (len(df), 1))
+        race = np.reshape(df.race.values.tolist(), (len(df), 1))
+        age = np.reshape(df.age.apply(lambda x: utils.categorize_age(x)).values.tolist(), (len(df), 1))
+
+        iri_input = df[self.iri_features].values
+        personality_input = df[self.personality_features].values
+
+        if mode == "train":
+            gender = self.gender_encoder.fit_transform(gender)
+            gender = np.reshape(gender, (len(gender), 1))
+            gender = self.gender_onehot_encoder.fit_transform(gender)
+        
+            education = self.education_encoder.fit_transform(education)
+            education = np.reshape(education, (len(education), 1))
+            education = self.education_onehot_encoder.fit_transform(education)
+
+            race = self.race_encoder.fit_transform(race)
+            race = np.reshape(race, (len(race), 1))
+            race = self.race_onehot_encoder.fit_transform(race)
+
+            age = self.age_encoder.fit_transform(age)
+            age = np.reshape(age, (len(age), 1))
+            age = self.age_onehot_encoder.fit_transform(age)
+
+            iri_input = self.iri_scaler.fit_transform(iri_input)
+            personality_input = self.personality_scaler.fit_transform(personality_input)
+
+        elif mode == "dev" or "test":
+            gender = self.gender_encoder.transform(gender)
+            gender = np.reshape(gender, (len(gender), 1))
+            gender = self.gender_onehot_encoder.transform(gender)
+        
+            education = self.education_encoder.transform(education)
+            education = np.reshape(education, (len(education), 1))
+            education = self.education_onehot_encoder.transform(education)
+
+            race = self.race_encoder.transform(race)
+            race = np.reshape(race, (len(race), 1))
+            race = self.race_onehot_encoder.transform(race)
+
+            age = self.age_encoder.transform(age)
+            age = np.reshape(age, (len(age), 1))
+            age = self.age_onehot_encoder.transform(age)
+
+            iri_input = self.iri_scaler.transform(iri_input)
+            personality_input = self.personality_scaler.transform(personality_input)
+
+        iri_input = np.reshape(iri_input, (len(iri_input), len(iri_input[0])))
+        personality_input = np.reshape(personality_input, (len(personality_input), len(personality_input[0])))
+        
+        if self.base_model_type in self.bert_models:
+            return [self.base_model.prepare_input(essay, maxlen), 
+                    gender,
+                    education,
+                    race,
+                    age,
+                    iri_input, 
+                    personality_input]
+        else:
+            return [self.base_model.prepare_input(utils_obj, essay, maxlen, padding_type, truncating_type, mode), 
+                    gender,
+                    education,
+                    race,
+                    age,
+                    iri_input, 
+                    personality_input]
 
 
 
@@ -141,32 +218,12 @@ class MTLM():
     # ------------------------------------------------------------ Funciton to prepare model outputs ------------------------------------------------------------
     
     def prepare_output(self,utils,  df, task="empathy", mode="train"):
-        emotion = np.reshape(df.gold_emotion.values.tolist(), (len(df), 1))
-        gender = np.reshape(df.gender.values.tolist(), (len(df), 1))
-        education = np.reshape(df.education.values.tolist(), (len(df), 1))
-        race = np.reshape(df.race.values.tolist(), (len(df), 1))
-        age = np.reshape(df.age.apply(lambda x: utils.categorize_age(x)).values.tolist(), (len(df), 1))
-
-        if mode == "train":
-            emotion = self.emotion_encoder.fit_transform(emotion)
-            gender = self.gender_encoder.fit_transform(gender)
-            education = self.education_encoder.fit_transform(education)
-            race = self.race_encoder.fit_transform(race)
-
-        elif mode == "dev" or "test":
-            emotion = self.emotion_encoder.transform(emotion)
-            gender = self.gender_encoder.transform(gender)
-            education = self.education_encoder.transform(education)
-            race = self.race_encoder.transform(race)
-
         if task == "empathy":
             score = np.reshape(df.gold_empathy.values.tolist(), (len(df), 1))
-            bin = np.reshape(df.gold_empathy_bin.values.tolist(), (len(df), 1))
-            return [bin, emotion, gender, education, race, score]
+            return score
         if task == "distress":
             score = np.reshape(df.gold_distress.values.tolist(), (len(df), 1))
-            bin = np.reshape(df.gold_distress_bin.values.tolist(), (len(df), 1))
-            return[bin, emotion, gender, education, race, score]
+            return score
 
 
 
@@ -183,39 +240,68 @@ class MTLM():
             input = Input(shape=(input_length,), name="base_model_input")
             base_output = self.base_model.build(input_length, embedding_matrix)(input)
 
-        x1 = Dense(32, activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(base_output)
-        bin = Dense(1, activation="sigmoid", name='bin_output')(x1)
+        # Plain RoBERTa representations
+        x1 = Dense(16, activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(base_output)
 
-        x2 = Dense(32, activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(base_output)
-        emotion = Dense(7, activation='softmax', name='emotion_output')(x2)
+        # Categorical data inputs:
+        gender_input = Input(shape=(3,), name='gender_input')
+        gender_embedding = Embedding(input_dim=3, output_dim=3, trainable=True)(gender_input)
+        gender_embedding = Flatten()(gender_embedding)
 
-        x3 = Dense(32, activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(base_output)
-        gender = Dense(3, activation='softmax', name='gender_output')(x3)
+        education_input = Input(shape=(6,), name='education_input')
+        education_embedding = Embedding(input_dim=6, output_dim=3, trainable=True)(education_input)
+        education_embedding = Flatten()(education_embedding)
+
+        race_input = Input(shape=(6,), name='race_input')
+        race_embedding = Embedding(input_dim=6, output_dim=3, trainable=True)(race_input)
+        race_embedding = Flatten()(race_embedding)
+
+        age_input = Input(shape=(4,), name='age_input')
+        age_embedding = Embedding(input_dim=4, output_dim=3, trainable=True)(age_input)
+        age_embedding = Flatten()(age_embedding)
+
+        x2 = Concatenate(axis=1)([gender_embedding, education_embedding, race_embedding, age_embedding])
+        x2 = Dense(32, activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(x2)
+        x2 = Dense(16, activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(x2)
+
+        # IRI Input
+        iri_input = Input(shape=(4,), name="iri_input")
+        iri_dense = Dense(8, activation=self.activation, kernel_initializer=self.kr_initializer)(iri_input)
         
-        x4 = Dense(32, activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(base_output)
-        education = Dense(6, activation='softmax', name='education_output')(x4)
-  
-        x5 = Dense(32, activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(base_output)
-        race = Dense(6, activation='softmax', name='race_output')(x5)
+        # Big 5 Personality Input
+        personality_input = Input(shape=(5,), name="personality_input")
+        personality_dense = Dense(8, activation=self.activation, kernel_initializer=self.kr_initializer)(personality_input)
 
-        x = Concatenate(axis=1)([x1, x2, x3, x4, x5])
-        #x = Dropout(0.2)(x)
+        x3 = Concatenate(axis=1)([iri_dense, personality_dense])
+        x3 = Dense(32, activation=self.activation, kernel_initializer=self.kr_initializer, kernel_regularizer=l2(self.kr_rate))(x3)
+        
+        # Predict Score
+        x = Concatenate(axis=1)([x1, x2, x3])
         x = Dense(16, activation=self.activation, kernel_initializer=self.kr_initializer)(x)
         score = Dense(1, name='score_output')(x)
         
         if self.base_model_type in self.bert_models:
-            self.model = Model(inputs=[input_ids, attention_mask], 
-                               outputs=[bin, emotion, gender, education, race, score])
+            self.model = Model(inputs=[input_ids, 
+                                       attention_mask,
+                                       gender_input,
+                                       education_input,
+                                       race_input,
+                                       age_input,
+                                       iri_input,
+                                       personality_input], 
+                               outputs=score)
         else:
-            self.model = Model(inputs=input, 
-                               outputs=[bin, emotion, gender, education, race, score])
+            self.model = Model(inputs=[input, 
+                                       gender_input,
+                                       education_input,
+                                       race_input,
+                                       age_input,
+                                       emotion_input,
+                                       iri_input,
+                                       personality_input], 
+                               outputs=score)
         self.model.compile(optimizer=Adam(lr=0.001), 
-                           loss={"bin_output":self.binary_loss,                                                           
-                                 "emotion_output":self.multiclass_loss,
-                                 "gender_output":self.multiclass_loss,
-                                 "education_output":self.multiclass_loss,
-                                 "race_output":self.multiclass_loss,
-                                 "score_output":self.score_loss},
+                           loss={"score_output":self.score_loss},
                            metrics={"score_output":self.score_metric})
         self.model.summary()
 
@@ -251,10 +337,10 @@ class MTLM():
     # ------------------------------------------------------------ Function to predict model output ------------------------------------------------------------
     
     def prediction(self, val_essay, model_path=""):
-        model_path = "/content/gdrive/My Drive/WASSA-2021-Shared-Task/model-weights/"+model_path
+        model_path = "/content/gdrive/My Drive/WASSA-2021-Shared-Task/best-models/"+model_path
         self.model.load_weights(model_path)
         pred = self.model.predict(val_essay)
-        return pred[-1]
+        return pred
 
 
 
@@ -268,12 +354,14 @@ class MTLM():
         return pearsonr(y_true, y_pred)
         
         
+        
 
 
-    # ------------------------------------------------------------ Function to calculate the Mean Squared Error ------------------------------------------------------------
-       
-    def compute_mse(self, y_true, y_pred):
-        return np.average(losses.mean_squared_error(y_true, y_pred))
+    # ------------------------------------------------------------ Function to calculate the Pearson's correlation ------------------------------------------------------------
+    
+    def compute_mse(self, y_true, y_pred):  
+        return np.average(losses.mean_squared_error(y_true, y_pred))      
+
 
 
 
@@ -290,7 +378,5 @@ class MTLM():
         plt.show() 
 
         
-        
-        
-        
+
         
