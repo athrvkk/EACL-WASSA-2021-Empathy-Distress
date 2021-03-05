@@ -30,8 +30,11 @@ class RoBERTa_base():
 
     # ------------------------------------------------------------ Constructor ------------------------------------------------------------
     
-    def __init__(self, word_weight_column="weights", base_model_type="CNN", activation="relu", kr_rate=0.001, score_loss="mse", binary_loss="binary_crossentropy", multiclass_loss="sparse_categorical_crossentropy", cpkt="trial"):      
+    def __init__(self, task="empathy", activation="relu", kr_rate=0.001, score_loss="mse", binary_loss="binary_crossentropy", multiclass_loss="sparse_categorical_crossentropy", cpkt="trial"):      
+        
+        self.task = task
         self.kr_rate = kr_rate
+        
         # Set the model activation:
         if activation == "leaky_relu":
             self.activation = LeakyReLU()
@@ -81,11 +84,7 @@ class RoBERTa_base():
         self.bert_models = ["BERT", "DistilBERT", "RoBERTa", "custom"]
         if self.base_model_type in self.bert_models:
             self.base_model = BertModel(self.activation, self.kr_initializer, self.kr_rate, self.base_model_type, output_hidden_states=False)
-        elif self.base_model_type == "CNN":
-            self.base_model = CNN(self.activation, self.kr_initializer, self.kr_rate)
-        elif self.base_model_type == "BiLSTM":
-            self.base_model = BiLSTM(self.activation, self.kr_initializer, self.kr_rate)
-
+        s
         # ModelCheckPoint Callback:
         if score_loss == "huber":
             cpkt = cpkt + "-kr-{}-{}-{}-{}".format(self.kr_rate, self.activation, score_loss, delta)
@@ -93,8 +92,7 @@ class RoBERTa_base():
             cpkt = cpkt + "-kr-{}-{}-{}".format(self.kr_rate, self.activation, score_loss)
 
         cpkt = cpkt + "-epoch-{epoch:02d}-val-loss-{val_loss:02f}.h5"
-        checkpoint_filepath = "/content/gdrive/My Drive/WASSA-2021-Shared-Task/model-weights/"+ cpkt
-        self.model_checkpoint_callback = ModelCheckpoint(filepath=checkpoint_filepath,
+        self.model_checkpoint_callback = ModelCheckpoint(filepath=cpkt,
                                                     save_weights_only=True,
                                                     monitor='val_loss',
                                                     mode='auto',
@@ -125,24 +123,20 @@ class RoBERTa_base():
     
     def prepare_input(self, pre, df, maxlen=200, padding_type='post', truncating_type='post', mode="train"):
         essay = [pre.clean_text(text, remove_stopwords=False, lemmatize=False) for text in df.essay.values.tolist()]          
-        
-        if self.base_model_type in self.bert_models:
             return self.base_model.prepare_input(essay, maxlen)
-        else:
-            return self.base_model.prepare_input(utils_obj, essay, maxlen, padding_type, truncating_type, mode)
-
+       
 
 
 
 
     # ------------------------------------------------------------ Funciton to prepare model outputs ------------------------------------------------------------
     
-    def prepare_output(self,utils,  df, task="empathy", mode="train"):
-        if task == "empathy":
+    def prepare_output(self,utils,  df, mode="train"):
+        if self.task == "empathy":
             print("In empathy")
             score = np.reshape(df.gold_empathy.values.tolist(), (len(df), 1))
             return score
-        if task == "distress":
+        if self.task == "distress":
             print("In distress")
             score = np.reshape(df.gold_distress.values.tolist(), (len(df), 1))
             return score
@@ -154,24 +148,17 @@ class RoBERTa_base():
     # ------------------------------------------------------------ Function to build the model ------------------------------------------------------------
     
     def build(self, embedding_matrix, input_length=100):
-        if self.base_model_type in self.bert_models:
-            input_ids = Input(shape=(input_length,), name="input_ids")
-            attention_mask = Input(shape=(input_length,), name="attention_mask")
-            base_output = self.base_model.build(input_length)([input_ids, attention_mask])
-        else:
-            input = Input(shape=(input_length,), name="base_model_input")
-            base_output = self.base_model.build(input_length, embedding_matrix)(input)
+        input_ids = Input(shape=(input_length,), name="input_ids")
+        attention_mask = Input(shape=(input_length,), name="attention_mask")
+        base_output = self.base_model.build(input_length)([input_ids, attention_mask])
 
         x = Dense(16, activation=self.activation, kernel_initializer=self.kr_initializer)(base_output)
         score = Dense(1, name='score_output')(x)
         
-        if self.base_model_type in self.bert_models:
-            self.model = Model(inputs=[input_ids, 
-                                       attention_mask], 
-                               outputs=score)
-        else:
-            self.model = Model(inputs=input, 
-                               outputs=score)
+        self.model = Model(inputs=[input_ids, 
+                                   attention_mask], 
+                           outputs=score)
+
         self.model.compile(optimizer=Adam(lr=0.001), 
                            loss={"score_output":self.score_loss},
                            metrics={"score_output":self.score_metric})
@@ -209,7 +196,6 @@ class RoBERTa_base():
     # ------------------------------------------------------------ Function to predict model output ------------------------------------------------------------
     
     def prediction(self, val_essay, model_path=""):
-        model_path = "/content/gdrive/My Drive/WASSA-2021-Shared-Task/best-models/"+model_path
         self.model.load_weights(model_path)
         pred = self.model.predict(val_essay)
         return pred

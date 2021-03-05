@@ -8,6 +8,7 @@
 
 
 from .bert_model import BertModel
-from .bilstm import BiLSTM
-from .cnn import CNN
-from .mtlm import MTLM
+from .RoBERTa_base import RoBERTa_base
+from .RoBERTa_multi_input import RoBERTa_multi_input
+from .RoBERTa_multi_input_multi_task import RoBERTa_multi_input_multi_task
+from .RoBERTa_multi_input_multi_task_plus import RoBERTa_multi_input_multi_task_plus

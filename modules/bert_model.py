@@ -18,6 +18,7 @@ from tensorflow.keras import Model
 class BertModel():
     """ Implementation of BERT for regression """
 
+    # ------------------------------------------------------------ Constructor ------------------------------------------------------------
 
     def __init__(self, activation, kr_initializer, kr_rate, bert_model="BERT", output_hidden_states=False):
         """ Constructor to initialize Deep learning models
@@ -50,6 +51,8 @@ class BertModel():
 
 
 
+    # ------------------------------------------------------------ Function to prepare inputs ------------------------------------------------------------
+    
     def prepare_input(self, corpus, maxlen):
         """ Function to prepare input data for BERT.
         @param corpus (list): Dataset to be processed.
@@ -74,6 +77,8 @@ class BertModel():
 
 
 
+    # ------------------------------------------------------------ Function to build the BERT head model ------------------------------------------------------------
+        
     def build(self, input_length):
         """ Function to define the forward pass of the model.
         @param input (tensor): input to the model.
